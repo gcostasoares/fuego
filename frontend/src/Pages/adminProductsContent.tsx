@@ -1,0 +1,669 @@
+import React, { useEffect, useState, useRef } from "react";
+import apiClient from "@/Apis/apiService";
+import { Button } from "@/components/ui/button";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "react-beautiful-dnd";
+
+// format list prices as “9,64”
+const priceFormatter = new Intl.NumberFormat("de-DE", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+// static options from your DB
+const geneticsOptions     = ["Indica", "Hybrid", "Sativa"];
+const manufacturerOptions = ["Cantourage", "Demecan", "Avaay"];
+const originOptions       = ["Kanada", "Uruguay", "Dänemark", "Israel"];
+const rayOptions          = ["Unbestrahlt", "Bestrahlt"];
+
+type Lookup = { id: string; title: string };
+type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
+type Product = {
+  id: string;
+  name: string;
+  price: string;
+  thc: number;
+  cbd: number;
+  genetics: string;
+  imageUrl: string[];       // [profile, ...gallery]
+  isAvailable: string;
+  manufacturer: string;
+  origin: string | null;
+  ray: string;
+};
+type Form = {
+  name: string;
+  price: string;
+  thc: number;
+  cbd: number;
+  genetics: string;
+  isAvailable: boolean;
+  manufacturer: string;
+  origin: string;
+  ray: string;
+};
+const defaultForm: Form = {
+  name: "", price: 0, thc: 0, cbd: 0,
+  genetics: geneticsOptions[0],
+  isAvailable: false,
+  manufacturer: "", origin: "", ray: ""
+};
+type GalleryItem = {
+  id: string;
+  src: string;
+  file?: File;               // newly added
+  existingFilename?: string; // from server
+};
+
+export default function AdminProductsContent() {
+  // data
+  const [products, setProducts]   = useState<Product[]>([]);
+  const [effects, setEffects]     = useState<Lookup[]>([]);
+  const [terpenes, setTerpenes]   = useState<Lookup[]>([]);
+  const [tastes, setTastes]       = useState<Lookup[]>([]);
+  const [prodEff, setProdEff]     = useState<JT[]>([]);
+  const [prodTerp, setProdTerp]   = useState<JT[]>([]);
+  const [prodTaste, setProdTaste] = useState<JT[]>([]);
+
+  // modal + form
+  const [open, setOpen]         = useState(false);
+  const [mode, setMode]         = useState<"add"|"edit">("add");
+  const [selected, setSelected] = useState<Product|null>(null);
+  const [form, setForm]         = useState<Form>(defaultForm);
+
+  // profile image
+  const [existingProfile, setExistingProfile] = useState<string|null>(null);
+  const [removeProfile, setRemoveProfile]     = useState(false);
+  const [profileFile, setProfileFile]         = useState<File|null>(null);
+  const [profilePreview, setProfilePreview]   = useState<string|null>(null);
+
+  // gallery images
+  const [galleryItems, setGalleryItems]   = useState<GalleryItem[]>([]);
+  const [removeGallery, setRemoveGallery] = useState<string[]>([]);
+
+  // multi‑select
+  const [selEff, setSelEff]     = useState<string[]>([]);
+  const [selTerp, setSelTerp]   = useState<string[]>([]);
+  const [selTaste, setSelTaste] = useState<string[]>([]);
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  const API_URL  = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const headers  = { "x-admin-key": localStorage.getItem("adminKey") || "" };
+
+  useEffect(() => {
+    fetchProducts();
+    fetchEffects();
+    fetchTerpenes();
+    fetchTastes();
+    fetchJunctions();
+  }, []);
+
+  // fetchProducts now points at lowercase `/products`, with error handling
+  async function fetchProducts() {
+    try {
+      console.log("[AdminProducts] fetching products…");
+      const res = await apiClient.get("/products", {
+        params: { page: 1, pageSize: 50 },
+        headers,
+      });
+      const list: Product[] =
+        Array.isArray(res.data.products) ? res.data.products :
+        Array.isArray(res.data)          ? res.data          :
+        [];
+      console.log("[AdminProducts] received products:", list);
+      setProducts(list);
+    } catch (err) {
+      console.error("[AdminProducts] fetchProducts error:", err);
+      setProducts([]);
+    }
+  }
+  async function fetchEffects()   { setEffects((await apiClient.get("/effects",{headers})).data); }
+  async function fetchTerpenes()  { setTerpenes((await apiClient.get("/terpenes",{headers})).data); }
+  async function fetchTastes()    { setTastes((await apiClient.get("/tastes",{headers})).data); }
+  async function fetchJunctions() {
+    const [pe,pt,pu] = await Promise.all([
+      apiClient.get("/producteffects",  {headers}),
+      apiClient.get("/productterpenes", {headers}),
+      apiClient.get("/producttastes",   {headers}),
+    ]);
+    setProdEff(pe.data);
+    setProdTerp(pt.data);
+    setProdTaste(pu.data);
+  }
+
+  // openModal: prepare form + images + tags
+  const openModal = (prod?: Product) => {
+    if (prod) {
+      setMode("edit");
+      setSelected(prod);
+      setForm({
+        name: prod.name,
+        price: +Number(prod.price).toFixed(2),
+        thc:   +prod.thc.toFixed(2),
+        cbd:   +prod.cbd.toFixed(2),
+        genetics: prod.genetics,
+        isAvailable: prod.isAvailable === "Available",
+        manufacturer: prod.manufacturer,
+        origin: prod.origin||"",
+        ray: prod.ray
+      });
+
+      // profile
+      const [profile, ...gallery] = prod.imageUrl;
+      setExistingProfile(profile||null);
+      setRemoveProfile(false);
+      setProfileFile(null);
+      setProfilePreview(profile ? `${API_URL}/images/Products/${profile}` : null);
+
+      // gallery
+      setGalleryItems(
+        gallery.map(fn=>({
+          id: fn,
+          src: `${API_URL}/images/Products/${fn}`,
+          existingFilename: fn
+        }))
+      );
+      setRemoveGallery([]);
+
+      // multi‑select tags
+      setSelEff  (prodEff .filter(r=>r.productId===prod.id).map(r=>r.effectId!));
+      setSelTerp (prodTerp.filter(r=>r.productId===prod.id).map(r=>r.terpeneId!));
+      setSelTaste(prodTaste.filter(r=>r.productId===prod.id).map(r=>r.tasteId!));
+    } else {
+      setMode("add");
+      setSelected(null);
+      setForm(defaultForm);
+      setExistingProfile(null);
+      setRemoveProfile(false);
+      setProfileFile(null);
+      setProfilePreview(null);
+      setGalleryItems([]);
+      setRemoveGallery([]);
+      setSelEff([]); setSelTerp([]); setSelTaste([]);
+    }
+    setOpen(true);
+  };
+  const closeModal = () => setOpen(false);
+
+  function onChangeForm(e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) {
+    const { name, value, type, checked } = (e.target as any);
+    setForm(f=>({ ...f, [name]: type==="checkbox" ? checked : value }));
+  }
+
+  // PROFILE handlers
+  function onProfileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]||null;
+    setProfileFile(file);
+    setProfilePreview(file?URL.createObjectURL(file):null);
+    if (existingProfile) setRemoveProfile(true);
+  }
+  function removeProfileImage() {
+    setProfileFile(null);
+    setProfilePreview(null);
+    if (existingProfile) setRemoveProfile(true);
+    setExistingProfile(null);
+  }
+
+  // GALLERY handlers
+  function handleGallery(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files) return;
+    const arr = Array.from(e.target.files);
+    setGalleryItems(prev=>[
+      ...prev,
+      ...arr.map(file=>({
+        id: URL.createObjectURL(file),
+        src: URL.createObjectURL(file),
+        file
+      }))
+    ]);
+    e.target.value = "";
+  }
+  function removeGalleryItem(i: number) {
+    setGalleryItems(prev=>{
+      const item = prev[i];
+      if (item.existingFilename) setRemoveGallery(r=>[...r,item.existingFilename!]);
+      const c=[...prev]; c.splice(i,1);
+      return c;
+    });
+  }
+  function onDragEnd(result: DropResult) {
+    if (!result.destination) return;
+    const a = Array.from(galleryItems);
+    const [m] = a.splice(result.source.index,1);
+    a.splice(result.destination.index,0,m);
+    setGalleryItems(a);
+  }
+
+  // MULTI-SELECT helpers
+  function onMultiAdd(
+    e: React.ChangeEvent<HTMLSelectElement>,
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    existing: string[]
+  ) {
+    const v=e.target.value;
+    if(!v||existing.includes(v))return;
+    setter([...existing,v]);
+    e.target.value="";
+  }
+  function removeTag(id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) {
+    setter(prev=>prev.filter(x=>x!==id));
+  }
+
+  // SUBMIT create/update
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const fd = new FormData();
+
+    // BASIC FIELDS
+    fd.append("name", form.name);
+    fd.append("price", String(form.price));
+    fd.append("thc",   String(form.thc));
+    fd.append("cbd",   String(form.cbd));
+    fd.append("genetics", form.genetics);
+    fd.append("isAvailable", form.isAvailable?"Available":"Un-Available");
+    fd.append("manufacturer", form.manufacturer);
+    fd.append("origin", form.origin);
+    fd.append("ray", form.ray);
+    fd.append("rating","0");
+
+    // REMOVALS
+    if (removeProfile && existingProfile) fd.append("removeImages", existingProfile);
+    removeGallery.forEach(fn=>fd.append("removeImages",fn));
+
+    // NEW FILES
+    if (profileFile) fd.append("images", profileFile);
+    galleryItems.forEach(item=>{
+      if (item.file) fd.append("images", item.file!);
+    });
+
+    // IMAGE ORDER placeholder
+    const order: string[] = [];
+    if (profileFile) order.push("__NEW__");
+    else if (existingProfile) order.push(existingProfile);
+    galleryItems.forEach(item=>{
+      if (item.file) order.push("__NEW__");
+      else if (item.existingFilename) order.push(item.existingFilename);
+    });
+    fd.append("imageOrder", JSON.stringify(order));
+
+    // TAG JUNCTIONS
+    selEff.forEach(id=>fd.append("effectFilter",id));
+    selTerp.forEach(id=>fd.append("terpeneFilter",id));
+    selTaste.forEach(id=>fd.append("tasteFilter",id));
+
+    // API call
+    if (mode==="add") {
+      await apiClient.post("/Products", fd, {
+        headers:{ ...headers, "Content-Type":"multipart/form-data" }
+      });
+    } else if (selected) {
+      await apiClient.put(`/Products/${selected.id}`, fd, {
+        headers:{ ...headers, "Content-Type":"multipart/form-data" }
+      });
+    }
+
+    await fetchProducts();
+    await fetchJunctions();
+    closeModal();
+  }
+
+  // DELETE
+  async function onDelete(id: string) {
+    if (!confirm("Delete this product?")) return;
+    try {
+      await apiClient.delete(`/Products/${id}`, { headers });
+      await fetchProducts();
+    } catch (err) {
+      console.error("[AdminProducts] delete error:", err);
+      alert("Löschen fehlgeschlagen");
+    }
+  }
+
+  return (
+    <div>
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Produkte</h2>
+        <Button onClick={()=>openModal()}>Neues Produkt</Button>
+      </div>
+
+      {/* LIST */}
+      <ul className="divide-y">
+        {products.map(p=>(
+          <li key={p.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
+            <div className="flex items-center gap-3">
+              {p.imageUrl[0] && (
+                <img
+                  src={`${API_URL}/images/Products/${p.imageUrl[0]}`}
+                  alt={p.name}
+                  className="w-10 h-10 rounded-full object-cover border-2"
+                />
+              )}
+              <span
+                className="cursor-pointer text-blue-600 hover:underline"
+                onClick={()=>openModal(p)}
+              >
+                {p.name} — {priceFormatter.format(p.price)}
+              </span>
+            </div>
+            <Button variant="destructive" onClick={()=>onDelete(p.id)}>
+              Löschen
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      {/* MODAL */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          onClick={closeModal}
+        >
+          <div
+            ref={modalRef}
+            onClick={e=>e.stopPropagation()}
+            className="bg-white w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-lg shadow-lg p-6 relative"
+          >
+            <button
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
+              onClick={closeModal}
+              aria-label="Close"
+            >×</button>
+            <h3 className="text-2xl font-bold mb-4">
+              {mode==="edit"?"Produkt bearbeiten":"Neues Produkt"}
+            </h3>
+
+            <form onSubmit={onSubmit} className="space-y-6">
+              {/* PROFILE */}
+              <div>
+                <label className="block font-medium mb-1">Profilbild</label>
+                {profilePreview ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={profilePreview}
+                      className="w-20 h-20 rounded-full object-cover border"
+                    />
+                    <button
+                      type="button"
+                      onClick={removeProfileImage}
+                      className="absolute top-0 right-0 bg-white rounded-full p-1 text-red-500"
+                    >×</button>
+                  </div>
+                ) : (
+                  <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg"
+                    onChange={onProfileChange}
+                  />
+                )}
+              </div>
+
+              {/* GALLERY */}
+              <div>
+                <label className="block font-medium mb-1">Weitere Bilder</label>
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  multiple
+                  onChange={handleGallery}
+                />
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <Droppable droppableId="gallery" direction="horizontal">
+                    {provided => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className="flex flex-wrap gap-2 mt-2"
+                      >
+                        {galleryItems.map((item,i)=>(
+                          <Draggable key={item.id} draggableId={item.id} index={i}>
+                            {prov=>(
+                              <div
+                                ref={prov.innerRef}
+                                {...prov.draggableProps}
+                                {...prov.dragHandleProps}
+                                className="relative"
+                              >
+                                <img
+                                  src={item.src}
+                                  className="w-20 h-20 rounded object-cover border"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={()=>removeGalleryItem(i)}
+                                  className="absolute top-0 right-0 bg-white rounded-full p-1 text-red-500"
+                                >×</button>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
+              </div>
+
+              {/* PRODUCT DETAILS & TAGS */}
+              <fieldset className="border p-4 rounded">
+                <legend className="font-semibold px-2">Produktdetails</legend>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  {/* Name */}
+                  <div>
+                    <label className="block text-sm">Name</label>
+                    <input
+                      name="name"
+                      value={form.name}
+                      onChange={onChangeForm}
+                      required
+                      className="w-full border p-2"
+                    />
+                  </div>
+                  {/* Preis */}
+                  <div>
+                    <label className="block text-sm">Preis (€)</label>
+                    <input
+                      name="price"
+                      type="number"
+                      step="0.01"
+                      value={form.price}
+                      onChange={onChangeForm}
+                      className="w-full border p-2"
+                    />
+                  </div>
+                  {/* THC */}
+                  <div>
+                    <label className="block text-sm">THC (%)</label>
+                    <input
+                      name="thc"
+                      type="number"
+                      step="0.01"
+                      value={form.thc}
+                      onChange={onChangeForm}
+                      className="w-full border p-2"
+                    />
+                  </div>
+                  {/* CBD */}
+                  <div>
+                    <label className="block text-sm">CBD (%)</label>
+                    <input
+                      name="cbd"
+                      type="number"
+                      step="0.01"
+                      value={form.cbd}
+                      onChange={onChangeForm}
+                      className="w-full border p-2"
+                    />
+                  </div>
+                  {/* Genetik */}
+                  <div>
+                    <label className="block text-sm">Genetik</label>
+                    <select
+                      name="genetics"
+                      value={form.genetics}
+                      onChange={onChangeForm}
+                      className="w-full border p-2"
+                    >
+                      {geneticsOptions.map(g=>(
+                        <option key={g} value={g}>{g}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Verfügbar */}
+                  <div className="flex items-center pt-6">
+                    <input
+                      type="checkbox"
+                      name="isAvailable"
+                      checked={form.isAvailable}
+                      onChange={onChangeForm}
+                      className="mr-2"
+                    />
+                    <label>Verfügbar</label>
+                  </div>
+                  {/* Hersteller */}
+                  <div>
+                    <label className="block text-sm">Hersteller</label>
+                    <select
+                      name="manufacturer"
+                      value={form.manufacturer}
+                      onChange={onChangeForm}
+                      required
+                      className="w-full border p-2"
+                    >
+                      <option value="">Auswählen</option>
+                      {manufacturerOptions.map(m=>(
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Herkunft */}
+                  <div>
+                    <label className="block text-sm">Herkunft</label>
+                    <select
+                      name="origin"
+                      value={form.origin}
+                      onChange={onChangeForm}
+                      className="w-full border p-2"
+                    >
+                      <option value="">Auswählen</option>
+                      {originOptions.map(o=>(
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Ray */}
+                  <div>
+                    <label className="block text-sm">Ray</label>
+                    <select
+                      name="ray"
+                      value={form.ray}
+                      onChange={onChangeForm}
+                      required
+                      className="w-full border p-2"
+                    >
+                      <option value="">Auswählen</option>
+                      {rayOptions.map(r=>(
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Effekte */}
+                <div className="mt-4">
+                  <label className="block font-medium mb-1">Effekte</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selEff.map(id=>{
+                      const e = effects.find(x=>x.id===id);
+                      return (
+                        <button key={id} type="button"
+                          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center gap-1">
+                          {e?.title}
+                          <span onClick={()=>removeTag(id,setSelEff)}
+                                className="ml-1 cursor-pointer">×</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <select
+                    value=""
+                    onChange={e=>onMultiAdd(e,setSelEff,selEff)}
+                    className="w-full border p-2"
+                  >
+                    <option value="">Effekt hinzufügen…</option>
+                    {effects.filter(x=>!selEff.includes(x.id))
+                            .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                  </select>
+                </div>
+
+                {/* Terpene */}
+                <div className="mt-4">
+                  <label className="block font-medium mb-1">Terpene</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selTerp.map(id=>{
+                      const t = terpenes.find(x=>x.id===id);
+                      return (
+                        <button key={id} type="button"
+                          className="bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1">
+                          {t?.title}
+                          <span onClick={()=>removeTag(id,setSelTerp)}
+                                className="ml-1 cursor-pointer">×</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <select
+                    value=""
+                    onChange={e=>onMultiAdd(e,setSelTerp,selTerp)}
+                    className="w-full border p-2"
+                  >
+                    <option value="">Terpen hinzufügen…</option>
+                    {terpenes.filter(x=>!selTerp.includes(x.id))
+                              .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                  </select>
+                </div>
+
+                {/* Geschmäcker */}
+                <div className="mt-4">
+                  <label className="block font-medium mb-1">Geschmäcker</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selTaste.map(id=>{
+                      const t = tastes.find(x=>x.id===id);
+                      return (
+                        <button key={id} type="button"
+                          className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full flex items-center gap-1">
+                          {t?.title}
+                          <span onClick={()=>removeTag(id,setSelTaste)}
+                                className="ml-1 cursor-pointer">×</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <select
+                    value=""
+                    onChange={e=>onMultiAdd(e,setSelTaste,selTaste)}
+                    className="w-full border p-2"
+                  >
+                    <option value="">Geschmack hinzufügen…</option>
+                    {tastes.filter(x=>!selTaste.includes(x.id))
+                           .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                  </select>
+                </div>
+              </fieldset>
+
+              {/* ACTIONS */}
+              <div className="flex justify-end space-x-4">
+                <Button type="submit">{mode==="edit"?"Speichern":"Hinzufügen"}</Button>
+                <Button variant="outline" onClick={closeModal}>Abbrechen</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

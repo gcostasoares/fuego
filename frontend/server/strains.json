@@ -1,0 +1,184 @@
+{
+    "strains": [
+      {
+        "id": 1,
+        "name": "Blue Dream",
+        "type": "Hybrid",
+        "thc": 18.5,
+        "cbd": 0.1,
+        "effects": ["euphoric", "creative", "relaxed"],
+        "flavors": ["blueberry", "sweet", "vanilla"]
+      },
+      {
+        "id": 2,
+        "name": "Sour Diesel",
+        "type": "Sativa",
+        "thc": 22.3,
+        "cbd": 0.2,
+        "effects": ["energetic", "uplifted", "happy"],
+        "flavors": ["diesel", "pungent", "citrus"]
+      },
+      {
+        "id": 3,
+        "name": "Northern Lights",
+        "type": "Indica",
+        "thc": 20.1,
+        "cbd": 0.3,
+        "effects": ["sleepy", "relaxed", "hungry"],
+        "flavors": ["pine", "sweet", "spicy"]
+      },
+      {
+        "id": 4,
+        "name": "Green Crack",
+        "type": "Sativa",
+        "thc": 24.7,
+        "cbd": 0.1,
+        "effects": ["focused", "energetic", "talkative"],
+        "flavors": ["mango", "tropical", "sweet"]
+      },
+      {
+        "id": 5,
+        "name": "Girl Scout Cookies",
+        "type": "Hybrid",
+        "thc": 25.0,
+        "cbd": 0.2,
+        "effects": ["euphoric", "relaxed", "happy"],
+        "flavors": ["mint", "chocolate", "earthy"]
+      },
+      {
+        "id": 6,
+        "name": "White Widow",
+        "type": "Hybrid",
+        "thc": 19.8,
+        "cbd": 0.4,
+        "effects": ["creative", "focused", "uplifted"],
+        "flavors": ["pine", "woody", "earthy"]
+      },
+      {
+        "id": 7,
+        "name": "OG Kush",
+        "type": "Hybrid",
+        "thc": 23.4,
+        "cbd": 0.3,
+        "effects": ["happy", "relaxed", "hungry"],
+        "flavors": ["citrus", "pine", "woody"]
+      },
+      {
+        "id": 8,
+        "name": "Jack Herer",
+        "type": "Sativa",
+        "thc": 21.9,
+        "cbd": 0.2,
+        "effects": ["creative", "energetic", "focused"],
+        "flavors": ["pine", "woody", "spicy"]
+      },
+      {
+        "id": 9,
+        "name": "Granddaddy Purple",
+        "type": "Indica",
+        "thc": 22.5,
+        "cbd": 0.4,
+        "effects": ["sleepy", "relaxed", "euphoric"],
+        "flavors": ["grape", "berry", "sweet"]
+      },
+      {
+        "id": 10,
+        "name": "Durban Poison",
+        "type": "Sativa",
+        "thc": 20.7,
+        "cbd": 0.1,
+        "effects": ["energetic", "creative", "uplifted"],
+        "flavors": ["sweet", "pine", "citrus"]
+      },
+      {
+        "id": 11,
+        "name": "Pineapple Express",
+        "type": "Hybrid",
+        "thc": 18.9,
+        "cbd": 0.2,
+        "effects": ["happy", "uplifted", "relaxed"],
+        "flavors": ["pineapple", "tropical", "sweet"]
+      },
+      {
+        "id": 12,
+        "name": "AK-47",
+        "type": "Hybrid",
+        "thc": 20.3,
+        "cbd": 0.3,
+        "effects": ["relaxed", "happy", "creative"],
+        "flavors": ["earthy", "skunky", "sweet"]
+      },
+      {
+        "id": 13,
+        "name": "Purple Haze",
+        "type": "Sativa",
+        "thc": 22.1,
+        "cbd": 0.2,
+        "effects": ["euphoric", "creative", "energetic"],
+        "flavors": ["berry", "sweet", "earthy"]
+      },
+      {
+        "id": 14,
+        "name": "Bubba Kush",
+        "type": "Indica",
+        "thc": 21.8,
+        "cbd": 0.5,
+        "effects": ["sleepy", "relaxed", "hungry"],
+        "flavors": ["coffee", "earthy", "spicy"]
+      },
+      {
+        "id": 15,
+        "name": "Super Silver Haze",
+        "type": "Sativa",
+        "thc": 23.6,
+        "cbd": 0.2,
+        "effects": ["energetic", "focused", "creative"],
+        "flavors": ["citrus", "spicy", "earthy"]
+      },
+      {
+        "id": 16,
+        "name": "Gorilla Glue #4",
+        "type": "Hybrid",
+        "thc": 26.3,
+        "cbd": 0.4,
+        "effects": ["relaxed", "euphoric", "happy"],
+        "flavors": ["chocolate", "pine", "earthy"]
+      },
+      {
+        "id": 17,
+        "name": "Trainwreck",
+        "type": "Sativa",
+        "thc": 19.7,
+        "cbd": 0.3,
+        "effects": ["creative", "euphoric", "energetic"],
+        "flavors": ["lemon", "pine", "spicy"]
+      },
+      {
+        "id": 18,
+        "name": "Blue Cheese",
+        "type": "Indica",
+        "thc": 20.5,
+        "cbd": 0.6,
+        "effects": ["relaxed", "happy", "sleepy"],
+        "flavors": ["blueberry", "cheese", "sweet"]
+      },
+      {
+        "id": 19,
+        "name": "Lemon Haze",
+        "type": "Sativa",
+        "thc": 21.2,
+        "cbd": 0.2,
+        "effects": ["focused", "energetic", "happy"],
+        "flavors": ["lemon", "citrus", "sweet"]
+      },
+      {
+        "id": 20,
+        "name": "Godfather OG",
+        "type": "Indica",
+        "thc": 27.4,
+        "cbd": 0.3,
+        "effects": ["sleepy", "relaxed", "euphoric"],
+        "flavors": ["pine", "earthy", "woody"]
+      }
+    ]
+  }
