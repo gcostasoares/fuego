@@ -38,7 +38,7 @@ interface RawGallery {
 }
 
 export const Home: React.FC = () => {
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
 
   const [homeData, setHomeData] = useState<HomeData | null>(null);
   const [shopDescriptions, setShopDescriptions] = useState<ShopDescription[]>([]);
