@@ -6,7 +6,7 @@ import BusinessDetails from "@/components/BusinessDetails";
 import { Pharmacy } from "@/types/doctors";
 
 // point at your Express server
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+const API_URL = "https://fuego-ombm.onrender.com";
 
 export const PharmacyDetail: React.FC = () => {
   const { id: pharmacyId } = useParams({ from: "/pharmacyDetail/$id" });
