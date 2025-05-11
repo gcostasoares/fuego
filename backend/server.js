@@ -23,11 +23,15 @@ app.use("/images", (req, res, next) => {
 }, express.static("public/images"));
 
 const dbConfig = {
-  user: "SA",
-  password: "YourStrong@Passw0rd",
-  server: "localhost",
-  database: "Fuego",
-  options: { encrypt: false, trustServerCertificate: true },
+  user:           process.env.DB_USER,
+  password:       process.env.DB_PASSWORD,
+  server:         process.env.DB_SERVER,          // e.g. fuego-server.database.windows.net
+  port:           parseInt(process.env.DB_PORT),  // 1433
+  database:       process.env.DB_NAME,            // e.g. FuegoDB
+  options: {
+    encrypt:              true,   // Azure requires encryption
+    trustServerCertificate: false // only for dev – set true if you have cert issues
+  },
 };
 
 let pool;
