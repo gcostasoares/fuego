@@ -1,3 +1,4 @@
+// src/LoginForm.tsx
 import React from "react";
 import { Logo } from "../Layouts/Header";
 import {
@@ -16,19 +17,28 @@ interface IProps {
   onRegisterClick: () => void;
 }
 
+interface LoginFormValues {
+  email: string;
+  password: string;
+}
+
 export const LoginForm: React.FC<IProps> = ({
   show,
   setShow,
   onRegisterClick,
 }) => {
-  const methods = useForm<{ email: string; password: string }>();
+  // Initialize react-hook-form
+  const methods = useForm<LoginFormValues>({
+    defaultValues: { email: "", password: "" },
+  });
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = methods;
 
-  const onSubmit = async (data) => {
+  // Submission handler
+  const onSubmit = async (data: LoginFormValues) => {
     try {
       const res = await fetch(
         "https://fuego-ombm.onrender.com/api/login",
@@ -39,11 +49,13 @@ export const LoginForm: React.FC<IProps> = ({
         }
       );
       const result = await res.json();
+
       if (!res.ok) {
+        // Show server‐side error message
         throw new Error(result.error || "Anmeldung fehlgeschlagen");
       }
 
-      // persist token + user
+      // Store in localStorage
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -62,11 +74,12 @@ export const LoginForm: React.FC<IProps> = ({
     }
   };
 
+  // Don't render if `show` is false
   if (!show) return null;
 
   return (
     <Dialog open={show} onOpenChange={() => setShow(false)} modal>
-      {/* 1️⃣ DialogTitle BEFORE DialogContent */}
+      {/* 1) Title for accessibility */}
       <DialogTitle className="text-center">Willkommen zurück</DialogTitle>
 
       <DialogContent className="!gap-2">
@@ -80,7 +93,7 @@ export const LoginForm: React.FC<IProps> = ({
 
         <FormProvider {...methods}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* — E-Mail Field — */}
+            {/* — Email Field — */}
             <FormItem>
               <FormLabel>E-Mail-Adresse</FormLabel>
               <FormControl>
@@ -89,6 +102,11 @@ export const LoginForm: React.FC<IProps> = ({
                   placeholder="Ihre E-Mail"
                   {...register("email", {
                     required: "E-Mail ist erforderlich",
+                    pattern: {
+                      value:
+                        /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: "Ungültige E-Mail-Adresse",
+                    },
                   })}
                 />
               </FormControl>
@@ -99,7 +117,7 @@ export const LoginForm: React.FC<IProps> = ({
               )}
             </FormItem>
 
-            {/* — Passwort Field — */}
+            {/* — Password Field — */}
             <FormItem>
               <FormLabel>Passwort</FormLabel>
               <FormControl>
@@ -108,6 +126,11 @@ export const LoginForm: React.FC<IProps> = ({
                   placeholder="••••••••"
                   {...register("password", {
                     required: "Passwort ist erforderlich",
+                    minLength: {
+                      value: 6,
+                      message:
+                        "Das Passwort muss mindestens 6 Zeichen lang sein",
+                    },
                   })}
                 />
               </FormControl>
