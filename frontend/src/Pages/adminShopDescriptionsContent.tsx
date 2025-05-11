@@ -30,7 +30,7 @@ export default function AdminShopDescriptionsContent() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
   const token   = localStorage.getItem("token") || "";
   const authHdr = { Authorization: `Bearer ${token}` };
 
