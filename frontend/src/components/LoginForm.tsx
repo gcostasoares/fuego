@@ -26,7 +26,7 @@ export const LoginForm: React.FC<IProps> = ({ show, setShow, onRegisterClick }) 
 
   const onSubmit = async (data: { email: string; password: string }) => {
     try {
-      const response = await fetch("http://localhost:8081/api/login", {
+      const response = await fetch("http://fuego-ombm.onrender.com/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data)
