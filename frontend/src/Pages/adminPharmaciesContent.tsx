@@ -36,7 +36,7 @@ const defaultFormData = {
 };
 
 const verifiedOptions = ["Not Verified", "Verified"];
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+const API_URL = "https://fuego-ombm.onrender.com";
 const germanDays = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const halfHourTimes = Array.from({ length: 48 }, (_, i) => {
   const hour = String(Math.floor(i / 2)).padStart(2, "0");
