@@ -27,7 +27,6 @@ export const LoginForm: React.FC<IProps> = ({
   setShow,
   onRegisterClick,
 }) => {
-  // Initialize react-hook-form
   const methods = useForm<LoginFormValues>({
     defaultValues: { email: "", password: "" },
   });
@@ -37,7 +36,6 @@ export const LoginForm: React.FC<IProps> = ({
     formState: { errors, isSubmitting },
   } = methods;
 
-  // Submission handler
   const onSubmit = async (data: LoginFormValues) => {
     try {
       const res = await fetch(
@@ -49,13 +47,8 @@ export const LoginForm: React.FC<IProps> = ({
         }
       );
       const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Anmeldung fehlgeschlagen");
 
-      if (!res.ok) {
-        // Show server‐side error message
-        throw new Error(result.error || "Anmeldung fehlgeschlagen");
-      }
-
-      // Store in localStorage
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -74,12 +67,11 @@ export const LoginForm: React.FC<IProps> = ({
     }
   };
 
-  // Don't render if `show` is false
   if (!show) return null;
 
   return (
     <Dialog open={show} onOpenChange={() => setShow(false)} modal>
-      {/* 1) Title for accessibility */}
+      {/* HAVE A DialogTitle */}
       <DialogTitle className="text-center">Willkommen zurück</DialogTitle>
 
       <DialogContent className="!gap-2">
@@ -93,7 +85,7 @@ export const LoginForm: React.FC<IProps> = ({
 
         <FormProvider {...methods}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* — Email Field — */}
+            {/* Email */}
             <FormItem>
               <FormLabel>E-Mail-Adresse</FormLabel>
               <FormControl>
@@ -102,11 +94,6 @@ export const LoginForm: React.FC<IProps> = ({
                   placeholder="Ihre E-Mail"
                   {...register("email", {
                     required: "E-Mail ist erforderlich",
-                    pattern: {
-                      value:
-                        /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: "Ungültige E-Mail-Adresse",
-                    },
                   })}
                 />
               </FormControl>
@@ -117,7 +104,7 @@ export const LoginForm: React.FC<IProps> = ({
               )}
             </FormItem>
 
-            {/* — Password Field — */}
+            {/* Passwort */}
             <FormItem>
               <FormLabel>Passwort</FormLabel>
               <FormControl>
@@ -128,8 +115,7 @@ export const LoginForm: React.FC<IProps> = ({
                     required: "Passwort ist erforderlich",
                     minLength: {
                       value: 6,
-                      message:
-                        "Das Passwort muss mindestens 6 Zeichen lang sein",
+                      message: "Muss mindestens 6 Zeichen lang sein",
                     },
                   })}
                 />
@@ -141,7 +127,7 @@ export const LoginForm: React.FC<IProps> = ({
               )}
             </FormItem>
 
-            {/* — Submit Button — */}
+            {/* Submit */}
             <button
               type="submit"
               className="w-full my-2 bg-blue-600 text-white py-2 rounded"
@@ -150,12 +136,12 @@ export const LoginForm: React.FC<IProps> = ({
               {isSubmitting ? "Anmelden…" : "Anmelden"}
             </button>
 
-            {/* — Switch to Register — */}
+            {/* Switch to register */}
             <p className="text-center text-black small mt-3">
               Kein Konto?{" "}
               <span
                 onClick={onRegisterClick}
-                className="text-decoration-underline cursor-pointer text-blue-600 hover:text-blue-800"
+                className="cursor-pointer text-blue-600 hover:underline"
               >
                 Konto erstellen
               </span>
