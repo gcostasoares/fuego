@@ -29,7 +29,7 @@ export const RegisterPopupForm: React.FC<IProps> = ({ show, setShow, onLoginClic
 
   const onSubmit = async (data: { username: string; email: string; password: string; confirmPassword: string }) => {
     try {
-      const response = await fetch("http://localhost:8081/api/register", {
+      const response = await fetch("https://fuego-ombm.onrender.com/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
