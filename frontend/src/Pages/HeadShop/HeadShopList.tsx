@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandGroup, CommandItem, CommandList } from "cmdk";
 import { cn } from "@/lib/utils";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+const API_URL = "https://fuego-ombm.onrender.com";
 
 // unwrap JSON-encoded '["file.png"]' or return plain string
 function extractFilename(path: string | string[] | null): string | null {
