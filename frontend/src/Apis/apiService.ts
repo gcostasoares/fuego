@@ -1,9 +1,11 @@
-import { InternalAxiosRequestConfig } from "axios";
 // src/Apis/apiService.ts
 import axios, { AxiosError, AxiosResponse } from "axios";
+import type { InternalAxiosRequestConfig } from "axios";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
 
 const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "http://localhost:8081",
+  baseURL: API_URL,
   timeout: 50000,
   headers: { "Content-Type": "application/json" },
 });
@@ -32,7 +34,9 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
     if (error.response?.status === 401) {
-      console.error("Unauthorized. Clearing credentials and redirecting to login.");
+      console.error(
+        "Unauthorized. Clearing credentials and redirecting to login."
+      );
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/";
