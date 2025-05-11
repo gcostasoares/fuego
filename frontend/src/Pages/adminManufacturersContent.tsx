@@ -20,7 +20,7 @@ export default function AdminManufacturersContent() {
   const [modalOpen, setModalOpen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
   const headers = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
   const fetchManufacturers = async () => {
