@@ -1,5 +1,6 @@
 // src/LoginForm.tsx
 import React from "react";
+import { Col, Row } from "react-bootstrap";
 import { Logo } from "../Layouts/Header";
 import {
   Dialog,
@@ -8,8 +9,12 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 import { Input } from "./ui/input";
+import { Checkbox } from "./ui/checkbox";
 import { useForm, FormProvider } from "react-hook-form";
 import { FormItem, FormControl, FormLabel } from "./ui/form";
+
+// read from env or fallback
+const API_URL = process.env.REACT_APP_API_URL || "https://fuego-ombm.onrender.com";
 
 interface IProps {
   show: boolean;
@@ -27,6 +32,7 @@ export const LoginForm: React.FC<IProps> = ({
   setShow,
   onRegisterClick,
 }) => {
+  // initialize form
   const methods = useForm<LoginFormValues>({
     defaultValues: { email: "", password: "" },
   });
@@ -38,17 +44,17 @@ export const LoginForm: React.FC<IProps> = ({
 
   const onSubmit = async (data: LoginFormValues) => {
     try {
-      const res = await fetch(
-        "https://fuego-ombm.onrender.com/api/login",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        }
-      );
+      const res = await fetch(`${API_URL}/api/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Anmeldung fehlgeschlagen");
+      if (!res.ok) {
+        throw new Error(result.error || "Anmeldung fehlgeschlagen");
+      }
 
+      // save to localStorage
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -61,6 +67,7 @@ export const LoginForm: React.FC<IProps> = ({
 
       alert("Anmeldung erfolgreich!");
       setShow(false);
+      // reload to update header, etc.
       window.location.reload();
     } catch (err: any) {
       alert("Anmeldefehler: " + err.message);
@@ -71,7 +78,7 @@ export const LoginForm: React.FC<IProps> = ({
 
   return (
     <Dialog open={show} onOpenChange={() => setShow(false)} modal>
-      {/* HAVE A DialogTitle */}
+      {/* 1) DialogTitle *must* come first for Radix UI accessibility */}
       <DialogTitle className="text-center">Willkommen zurück</DialogTitle>
 
       <DialogContent className="!gap-2">
@@ -85,15 +92,20 @@ export const LoginForm: React.FC<IProps> = ({
 
         <FormProvider {...methods}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Email */}
+            {/* — E-Mail — */}
             <FormItem>
               <FormLabel>E-Mail-Adresse</FormLabel>
               <FormControl>
                 <Input
                   type="email"
-                  placeholder="Ihre E-Mail"
+                  placeholder="Geben Sie Ihre E-Mail-Adresse ein"
                   {...register("email", {
                     required: "E-Mail ist erforderlich",
+                    pattern: {
+                      value:
+                        /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: "Ungültige E-Mail-Adresse",
+                    },
                   })}
                 />
               </FormControl>
@@ -104,7 +116,7 @@ export const LoginForm: React.FC<IProps> = ({
               )}
             </FormItem>
 
-            {/* Passwort */}
+            {/* — Passwort — */}
             <FormItem>
               <FormLabel>Passwort</FormLabel>
               <FormControl>
@@ -115,7 +127,8 @@ export const LoginForm: React.FC<IProps> = ({
                     required: "Passwort ist erforderlich",
                     minLength: {
                       value: 6,
-                      message: "Muss mindestens 6 Zeichen lang sein",
+                      message:
+                        "Das Passwort muss mindestens 6 Zeichen lang sein",
                     },
                   })}
                 />
@@ -127,21 +140,41 @@ export const LoginForm: React.FC<IProps> = ({
               )}
             </FormItem>
 
-            {/* Submit */}
+            {/* — Remember & forgot — */}
+            <Row className="mb-3">
+              <Col sm={6} xs={12}>
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="remember" />
+                  <label
+                    htmlFor="remember"
+                    className="text-sm font-medium leading-none"
+                  >
+                    Angemeldet bleiben
+                  </label>
+                </div>
+              </Col>
+              <Col sm={6} xs={12}>
+                <p className="text-end underline cursor-pointer">
+                  Passwort vergessen?
+                </p>
+              </Col>
+            </Row>
+
+            {/* — Submit — */}
             <button
               type="submit"
               className="w-full my-2 bg-blue-600 text-white py-2 rounded"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Anmelden…" : "Anmelden"}
+              {isSubmitting ? "Anmelden..." : "Anmelden"}
             </button>
 
-            {/* Switch to register */}
+            {/* — Switch to Register — */}
             <p className="text-center text-black small mt-3">
               Kein Konto?{" "}
               <span
                 onClick={onRegisterClick}
-                className="cursor-pointer text-blue-600 hover:underline"
+                className="underline cursor-pointer text-blue-600 hover:text-blue-800"
               >
                 Konto erstellen
               </span>
