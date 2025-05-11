@@ -44,7 +44,7 @@ type DescriptionTab = "Flower" | "Grower";
 
 export const ProductDetail: React.FC = () => {
   const { product: productId } = useParams({ from: "/detail/$product" });
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
 
   const [product, setProduct] = useState<null | (ProductDetailType & { imagePath: string[] })>(null);
   const [sale, setSale]       = useState<SaleEntry | null>(null);
