@@ -5,7 +5,7 @@ import apiClient from "@/Apis/apiService";
 import BusinessDetails from "@/components/BusinessDetails";
 import { HeadShop } from "@/types/doctors";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+const API_URL = "https://fuego-ombm.onrender.com";
 
 // helper to unwrap JSON-encoded '["file.png"]' or return plain string
 function extractFilename(path: string | string[] | null): string | null {
