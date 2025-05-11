@@ -18,7 +18,7 @@ import { Command, CommandGroup, CommandItem, CommandList } from "cmdk";
 import { cn } from "@/lib/utils";
 
 // base URL for your backend
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+const API_URL = "https://fuego-ombm.onrender.com";
 
 const DdlFilter = ({ onSortChange }: { onSortChange: (val: string) => void }) => {
   const [open, setOpen] = useState(false);
