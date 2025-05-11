@@ -111,7 +111,7 @@ interface PharmacyWithPrice {
 export const ProductDetailMainContent: React.FC<ProductDetailMainContentProps> = ({
   product,
 }) => {
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
 
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [ray, setRay] = useState<Ray | null>(null);
