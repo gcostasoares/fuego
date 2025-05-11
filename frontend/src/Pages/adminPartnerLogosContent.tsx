@@ -14,7 +14,7 @@ interface Logo {
   imagePath: string | null;
 }
 
-/* strip off any existing numeric prefix "01- " etc. */
+// Remove any leading “01- ” etc.
 const stripPrefix = (p: string | null) =>
   p ? p.replace(/^\d+\s*-\s*/, "") : "";
 
@@ -27,14 +27,15 @@ export default function AdminPartnerLogoContent() {
   const [file, setFile] = useState<File | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const API_URL = "https://fuego-ombm.onrender.com";
-  const token = localStorage.getItem("token");
-  const headers = { Authorization: `Bearer ${token}` };
+  // Use VITE_API_URL (fall back to localhost for dev)
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
 
+  // 1) Fetch current logos
   const fetchLogos = async () => {
     try {
-      const r = await apiClient.get("/PartnerLogos", { headers });
-      const sorted = [...r.data].sort((a: Logo, b: Logo) => {
+      const r = await apiClient.get<Logo[]>("/PartnerLogos");
+      // sort by the numeric prefix, if any
+      const sorted = [...r.data].sort((a, b) => {
         const na = Number((a.imagePath ?? "").match(/^\d+/)?.[0] || 999);
         const nb = Number((b.imagePath ?? "").match(/^\d+/)?.[0] || 999);
         return na - nb;
@@ -49,6 +50,7 @@ export default function AdminPartnerLogoContent() {
     fetchLogos();
   }, []);
 
+  // Open “add” or “edit” modal
   const openModal = (logo?: Logo) => {
     if (logo) {
       setSelected(logo);
@@ -65,10 +67,11 @@ export default function AdminPartnerLogoContent() {
   };
   const closeModal = () => setModalOpen(false);
 
+  // When user selects a file
   const onImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!["image/png", "image/jpeg", "image/jpg"].includes(f.type)) {
+    if (!["image/png", "image/jpeg"].includes(f.type)) {
       return alert("Nur JPG/PNG erlaubt");
     }
     setFile(f);
@@ -79,9 +82,10 @@ export default function AdminPartnerLogoContent() {
     setPreview(null);
   };
 
+  // Add or replace logo
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file && mode === "add") {
+    if (mode === "add" && !file) {
       return alert("Bitte ein Bild wählen.");
     }
 
@@ -91,11 +95,11 @@ export default function AdminPartnerLogoContent() {
     try {
       if (mode === "add") {
         await apiClient.post("/PartnerLogos", fd, {
-          headers: { "Content-Type": "multipart/form-data", ...headers },
+          headers: { "Content-Type": "multipart/form-data" },
         });
       } else if (selected) {
         await apiClient.put(`/PartnerLogos/${selected.id}`, fd, {
-          headers: { "Content-Type": "multipart/form-data", ...headers },
+          headers: { "Content-Type": "multipart/form-data" },
         });
       }
       await fetchLogos();
@@ -106,10 +110,11 @@ export default function AdminPartnerLogoContent() {
     }
   };
 
+  // Delete
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
-      await apiClient.delete(`/PartnerLogos/${id}`, { headers });
+      await apiClient.delete(`/PartnerLogos/${id}`);
       await fetchLogos();
     } catch (err) {
       console.error("Delete failed:", err);
@@ -117,6 +122,7 @@ export default function AdminPartnerLogoContent() {
     }
   };
 
+  // Reorder on drag end, then persist new names
   const onDragEnd = async (result: DropResult) => {
     const { source, destination } = result;
     if (!destination || source.index === destination.index) return;
@@ -127,16 +133,13 @@ export default function AdminPartnerLogoContent() {
     setLogos(reordered);
 
     try {
+      // Rename on server by updating imagePath with new numeric prefix
       for (let idx = 0; idx < reordered.length; idx++) {
         const l = reordered[idx];
         const ext = stripPrefix(l.imagePath);
         const newName = `${(idx + 1).toString().padStart(2, "0")}-${ext}`;
         if (l.imagePath !== newName) {
-          await apiClient.put(
-            `/PartnerLogos/${l.id}`,
-            { imagePath: newName },
-            { headers }
-          );
+          await apiClient.put(`/PartnerLogos/${l.id}`, { imagePath: newName });
         }
       }
       await fetchLogos();
@@ -162,7 +165,6 @@ export default function AdminPartnerLogoContent() {
               className="divide-y"
             >
               {logos.map((l, idx) => {
-                // extract two-digit prefix
                 const position = l.imagePath?.split("-")[0] ?? "";
                 return (
                   <Draggable key={l.id} draggableId={l.id} index={idx}>
@@ -186,7 +188,7 @@ export default function AdminPartnerLogoContent() {
                             className="cursor-pointer text-blue-600 hover:underline"
                             onClick={() => openModal(l)}
                           >
-                            {position}
+                            {position || "–"}
                           </span>
                         </div>
                         <Button
@@ -236,11 +238,7 @@ export default function AdminPartnerLogoContent() {
                 {preview ? (
                   <div className="relative inline-block">
                     <img
-                      src={
-                        file
-                          ? preview
-                          : `${API_URL}/images/PartnerLogos/${preview}`
-                      }
+                      src={file ? preview : `${API_URL}/images/PartnerLogos/${preview}`}
                       alt="Vorschau"
                       className="w-24 h-24 object-contain border-2 rounded-full"
                     />
