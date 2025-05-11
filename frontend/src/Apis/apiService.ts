@@ -3,14 +3,9 @@ import { InternalAxiosRequestConfig } from "axios";
 import axios, { AxiosError, AxiosResponse } from "axios";
 
 const apiClient = axios.create({
-  baseURL:
-    process.env.NODE_ENV === "production"
-      ? "https://fuego-admin.digitechfox.com/api/"
-      : "http://localhost:8081",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:8081",
   timeout: 50000,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
 });
 
 // Attach admin key and JWT automatically
