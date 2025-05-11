@@ -34,7 +34,7 @@ export const GrowEquipmentDetail: React.FC = () => {
     return <div className="p-4">Loading grow equipment details...</div>;
   }
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
 
   // slice off date portion so we only pass "HH:mm"
   const startTime = growEquipment.startTime
