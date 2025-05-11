@@ -2,8 +2,8 @@ import React from "react";
 import { Logo } from "../Layouts/Header";
 import {
   Dialog,
-  DialogContent,
   DialogTitle,
+  DialogContent,
   DialogDescription,
 } from "./ui/dialog";
 import { Input } from "./ui/input";
@@ -21,14 +21,14 @@ export const LoginForm: React.FC<IProps> = ({
   setShow,
   onRegisterClick,
 }) => {
-  const methods = useForm();
+  const methods = useForm<{ email: string; password: string }>();
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = methods;
 
-  const onSubmit = async (data: { email: string; password: string }) => {
+  const onSubmit = async (data) => {
     try {
       const res = await fetch(
         "https://fuego-ombm.onrender.com/api/login",
@@ -43,6 +43,7 @@ export const LoginForm: React.FC<IProps> = ({
         throw new Error(result.error || "Anmeldung fehlgeschlagen");
       }
 
+      // persist token + user
       localStorage.setItem(
         "user",
         JSON.stringify({
@@ -65,17 +66,21 @@ export const LoginForm: React.FC<IProps> = ({
 
   return (
     <Dialog open={show} onOpenChange={() => setShow(false)} modal>
+      {/* 1️⃣ DialogTitle BEFORE DialogContent */}
       <DialogTitle className="text-center">Willkommen zurück</DialogTitle>
+
       <DialogContent className="!gap-2">
         <div className="py-2 text-center">
           <Logo />
         </div>
+
         <DialogDescription className="text-center mb-3">
           Bitte geben Sie Ihre Anmeldedaten ein.
         </DialogDescription>
 
         <FormProvider {...methods}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* — E-Mail Field — */}
             <FormItem>
               <FormLabel>E-Mail-Adresse</FormLabel>
               <FormControl>
@@ -94,6 +99,7 @@ export const LoginForm: React.FC<IProps> = ({
               )}
             </FormItem>
 
+            {/* — Passwort Field — */}
             <FormItem>
               <FormLabel>Passwort</FormLabel>
               <FormControl>
@@ -112,19 +118,21 @@ export const LoginForm: React.FC<IProps> = ({
               )}
             </FormItem>
 
+            {/* — Submit Button — */}
             <button
               type="submit"
               className="w-full my-2 bg-blue-600 text-white py-2 rounded"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Anmelden..." : "Anmelden"}
+              {isSubmitting ? "Anmelden…" : "Anmelden"}
             </button>
 
+            {/* — Switch to Register — */}
             <p className="text-center text-black small mt-3">
               Kein Konto?{" "}
               <span
-                className="text-decoration-underline cursor-pointer text-blue-600 hover:text-blue-800"
                 onClick={onRegisterClick}
+                className="text-decoration-underline cursor-pointer text-blue-600 hover:text-blue-800"
               >
                 Konto erstellen
               </span>
