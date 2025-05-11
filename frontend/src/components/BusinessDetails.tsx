@@ -55,7 +55,7 @@ const BusinessDetails: React.FC<BusinessDetailsProps> = ({
   endTime,
   isDoctor = false,
 }) => {
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
   const [sale, setSale] = useState<SaleEntry | null>(null);
   const [saleImage, setSaleImage] = useState<string | null>(null);
 
