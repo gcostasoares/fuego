@@ -25,6 +25,7 @@ interface Product {
 }
 
 const defaultForm = { title: "", subTitle: "" };
+// still needed to build <img> URLs
 const API_URL = "https://fuego-ombm.onrender.com";
 
 export default function AdminGalleryContent() {
@@ -41,24 +42,21 @@ export default function AdminGalleryContent() {
   const [open, setOpen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const headers = { "x-admin-key": localStorage.getItem("adminKey") || "" };
-
-  // fetch all galleries
+  // 1) Fetch all galleries
   const fetchGalleries = async () => {
     try {
-      const resp = await apiClient.get<Gallery[]>("/Gallery", { headers });
+      const resp = await apiClient.get<Gallery[]>("/Gallery");
       setGalleries(resp.data);
     } catch (err) {
       console.error("Error fetching galleries:", err);
     }
   };
 
-  // fetch all products
+  // 2) Fetch all products
   const fetchProducts = async () => {
     try {
       const resp = await apiClient.get<{ products: Product[] }>(
-        "/products?pageSize=1000",
-        { headers }
+        "/products?pageSize=1000"
       );
       setProducts(resp.data.products);
     } catch (err) {
@@ -71,9 +69,10 @@ export default function AdminGalleryContent() {
     fetchProducts();
   }, []);
 
-  // open modal (add vs edit)
+  // Open modal for Add or Edit
   const openModal = async (g?: Gallery) => {
     await fetchProducts();
+
     if (g) {
       setSelected(g);
       setForm({ title: g.title, subTitle: g.subTitle });
@@ -82,8 +81,8 @@ export default function AdminGalleryContent() {
       setMode("edit");
       try {
         const [gRes, sRes] = await Promise.all([
-          apiClient.get<string[]>(`/Gallery/${g.id}/grid/products`, { headers }),
-          apiClient.get<string[]>(`/Gallery/${g.id}/slide/products`, { headers }),
+          apiClient.get<string[]>(`/Gallery/${g.id}/grid/products`),
+          apiClient.get<string[]>(`/Gallery/${g.id}/slide/products`),
         ]);
         setGridIds(gRes.data);
         setSlideIds(sRes.data);
@@ -100,17 +99,19 @@ export default function AdminGalleryContent() {
       setSlideIds([]);
       setMode("add");
     }
+
     setOpen(true);
   };
   const closeModal = () => setOpen(false);
 
-  // form field change
+  // Handle form field changes
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  // create/update gallery + sync children
+  // Submit handler for add/edit + sync child orders
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const payload = {
       title: form.title.trim() || "(Ohne Titel)",
       subTitle: form.subTitle,
@@ -120,55 +121,52 @@ export default function AdminGalleryContent() {
 
     let galleryId = selected?.id;
     if (mode === "add") {
-      const resp = await apiClient.post("/Gallery", payload, { headers });
+      const resp = await apiClient.post<{ id: string }>("/Gallery", payload);
       galleryId = resp.data.id;
     } else {
-      await apiClient.put(`/Gallery/${galleryId}`, payload, { headers });
+      await apiClient.put(`/Gallery/${galleryId}`, payload);
     }
+
     if (!galleryId) return alert("Missing gallery ID!");
 
     if (isGrid) {
-      await apiClient.put(
-        `/Gallery/${galleryId}/grid/products/order`,
-        { order: gridIds },
-        { headers }
-      );
+      await apiClient.put(`/Gallery/${galleryId}/grid/products/order`, {
+        order: gridIds,
+      });
     }
     if (isSlide) {
-      await apiClient.put(
-        `/Gallery/${galleryId}/slide/products/order`,
-        { order: slideIds },
-        { headers }
-      );
+      await apiClient.put(`/Gallery/${galleryId}/slide/products/order`, {
+        order: slideIds,
+      });
     }
 
     await fetchGalleries();
     closeModal();
   };
 
-  // delete entire gallery
+  // Delete gallery
   const onDeleteGallery = async (id: string) => {
     if (!confirm("Löschen?")) return;
-    await apiClient.delete(`/Gallery/${id}`, { headers });
+    await apiClient.delete(`/Gallery/${id}`);
     setGalleries((gs) => gs.filter((g) => g.id !== id));
   };
 
-  // add product
+  // Add a product to grid or slide
   const handleAdd = (type: "grid" | "slide", pid: string) => {
     if (!pid) return;
-    type === "grid"
-      ? setGridIds((ids) => [...ids, pid])
-      : setSlideIds((ids) => [...ids, pid]);
+    if (type === "grid") setGridIds((ids) => [...ids, pid]);
+    else setSlideIds((ids) => [...ids, pid]);
   };
 
-  // remove product
+  // Remove a product from grid or slide
   const handleRemove = (type: "grid" | "slide", pid: string) => {
-    type === "grid"
-      ? setGridIds((ids) => ids.filter((x) => x !== pid))
-      : setSlideIds((ids) => ids.filter((x) => x !== pid));
+    if (type === "grid")
+      setGridIds((ids) => ids.filter((x) => x !== pid));
+    else
+      setSlideIds((ids) => ids.filter((x) => x !== pid));
   };
 
-  // drag&drop reorder
+  // Reorder on drag-and-drop
   const onDragEnd = (res: DropResult) => {
     const { source, destination, type } = res;
     if (!destination || source.index === destination.index) return;
@@ -198,9 +196,14 @@ export default function AdminGalleryContent() {
         <h2 className="text-2xl font-bold">Galleries</h2>
         <Button onClick={() => openModal()}>Neue Galerie hinzufügen</Button>
       </div>
+
       <Droppable droppableId="gallery-list" type="gallery">
         {(prov) => (
-          <ul ref={prov.innerRef} {...prov.droppableProps} className="divide-y">
+          <ul
+            ref={prov.innerRef}
+            {...prov.droppableProps}
+            className="divide-y"
+          >
             {galleries.map((g, idx) => (
               <Draggable key={g.id} draggableId={g.id} index={idx}>
                 {(p) => (
@@ -240,7 +243,7 @@ export default function AdminGalleryContent() {
         >
           <div
             ref={modalRef}
-            className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg p-6"
+            className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg p-6 relative"
           >
             <button
               className="absolute top-2 right-2 text-gray-500 text-2xl"
@@ -298,10 +301,12 @@ export default function AdminGalleryContent() {
                 </label>
               </div>
 
-              {/* Grid section */}
+              {/* Grid products */}
               {isGrid && (
                 <>
-                  <h4 className="text-lg font-semibold mt-4">Grid Produkte</h4>
+                  <h4 className="text-lg font-semibold mt-4">
+                    Grid Produkte
+                  </h4>
                   <select
                     onChange={(e) => handleAdd("grid", e.target.value)}
                     value=""
@@ -353,7 +358,9 @@ export default function AdminGalleryContent() {
                                       variant="destructive"
                                       size="sm"
                                       type="button"
-                                      onClick={() => handleRemove("grid", pid)}
+                                      onClick={() =>
+                                        handleRemove("grid", pid)
+                                      }
                                     >
                                       Entfernen
                                     </Button>
@@ -374,12 +381,14 @@ export default function AdminGalleryContent() {
                 </>
               )}
 
-              {/* Slide section */}
+              {/* Slide products */}
               {isSlide && (
                 <>
-                  <h4 className="text-lg font-semibold mt-4">Slide Produkte</h4>
+                  <h4 className="text-lg font-semibold mt-4">
+                    Slide Produkte
+                  </h4>
                   <select
-                    onChange={(e) => handleAdd("slide", e.target.value)} 
+                    onChange={(e) => handleAdd("slide", e.target.value)}
                     value=""
                     className="border w-full p-2 mb-2"
                   >
@@ -429,7 +438,9 @@ export default function AdminGalleryContent() {
                                       variant="destructive"
                                       size="sm"
                                       type="button"
-                                      onClick={() => handleRemove("slide", pid)}
+                                      onClick={() =>
+                                        handleRemove("slide", pid)
+                                      }
                                     >
                                       Entfernen
                                     </Button>
