@@ -32,7 +32,7 @@ export const ShopDetails: React.FC = () => {
     return <div className="p-4">Loading shop details...</div>;
   }
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
 
   // normalize to "HH:mm"
   const startTime = shop.startTime?.slice(11, 16) ?? "";
