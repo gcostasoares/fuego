@@ -9,7 +9,7 @@ export const DoctorDetail: React.FC = () => {
   const doctorId = params.id;
   const [doctor, setDoctor] = useState<Doctor | null>(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+  const API_URL = "https://fuego-ombm.onrender.com";
   const DEFAULT_COVER = "865b13da-61c7-4907-9d6d-584bf41aa0d6.png";
 
   useEffect(() => {
