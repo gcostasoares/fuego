@@ -14,7 +14,7 @@ interface Logo {
   imagePath: string | null;
 }
 
-// Remove any leading “01- ” etc.
+// Strip any leading “01- ” etc.
 const stripPrefix = (p: string | null) =>
   p ? p.replace(/^\d+\s*-\s*/, "") : "";
 
@@ -27,14 +27,12 @@ export default function AdminPartnerLogoContent() {
   const [file, setFile] = useState<File | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Use VITE_API_URL (falls back to localhost)
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
 
-  // 1) Fetch current logos
+  // Fetch and sort
   const fetchLogos = async () => {
     try {
       const r = await apiClient.get<Logo[]>("/PartnerLogos");
-      // sort by numeric prefix if present
       const sorted = [...r.data].sort((a, b) => {
         const na = Number((a.imagePath ?? "").match(/^\d+/)?.[0] || 999);
         const nb = Number((b.imagePath ?? "").match(/^\d+/)?.[0] || 999);
@@ -50,24 +48,21 @@ export default function AdminPartnerLogoContent() {
     fetchLogos();
   }, []);
 
-  // Open “add” or “edit” modal
   const openModal = (logo?: Logo) => {
     if (logo) {
       setSelected(logo);
       setPreview(logo.imagePath);
-      setFile(null);
       setMode("edit");
     } else {
       setSelected(null);
       setPreview(null);
-      setFile(null);
       setMode("add");
     }
+    setFile(null);
     setModalOpen(true);
   };
   const closeModal = () => setModalOpen(false);
 
-  // When user selects a file
   const onImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -82,7 +77,7 @@ export default function AdminPartnerLogoContent() {
     setPreview(null);
   };
 
-  // Add or replace logo
+  // NOTE: we do NOT set Content-Type here
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "add" && !file) {
@@ -106,7 +101,6 @@ export default function AdminPartnerLogoContent() {
     }
   };
 
-  // Delete logo
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
@@ -118,7 +112,6 @@ export default function AdminPartnerLogoContent() {
     }
   };
 
-  // Reorder on drag end, then persist new names
   const onDragEnd = async (result: DropResult) => {
     const { source, destination } = result;
     if (!destination || source.index === destination.index) return;
@@ -129,13 +122,10 @@ export default function AdminPartnerLogoContent() {
     setLogos(reordered);
 
     try {
-      // Rename on server by updating imagePath with new numeric prefix
       for (let idx = 0; idx < reordered.length; idx++) {
         const l = reordered[idx];
         const ext = stripPrefix(l.imagePath);
-        const newName = `${(idx + 1)
-          .toString()
-          .padStart(2, "0")}-${ext}`;
+        const newName = `${(idx + 1).toString().padStart(2, "0")}-${ext}`;
         if (l.imagePath !== newName) {
           await apiClient.put(`/PartnerLogos/${l.id}`, { imagePath: newName });
         }
@@ -157,13 +147,9 @@ export default function AdminPartnerLogoContent() {
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="logo-list">
           {(prov) => (
-            <ul
-              ref={prov.innerRef}
-              {...prov.droppableProps}
-              className="divide-y"
-            >
+            <ul ref={prov.innerRef} {...prov.droppableProps} className="divide-y">
               {logos.map((l, idx) => {
-                const position = l.imagePath?.split("-")[0] ?? "";
+                const pos = l.imagePath?.split("-")[0] ?? "";
                 return (
                   <Draggable key={l.id} draggableId={l.id} index={idx}>
                     {(p) => (
@@ -177,7 +163,6 @@ export default function AdminPartnerLogoContent() {
                           {l.imagePath && (
                             <img
                               src={`${API_URL}/images/PartnerLogos/${l.imagePath}`}
-                              alt=""
                               className="w-10 h-10 object-contain border-2 rounded-full"
                               loading="lazy"
                             />
@@ -186,7 +171,7 @@ export default function AdminPartnerLogoContent() {
                             className="cursor-pointer text-blue-600 hover:underline"
                             onClick={() => openModal(l)}
                           >
-                            {position || "–"}
+                            {pos || "–"}
                           </span>
                         </div>
                         <Button
@@ -241,14 +226,12 @@ export default function AdminPartnerLogoContent() {
                           ? preview
                           : `${API_URL}/images/PartnerLogos/${preview}`
                       }
-                      alt="Vorschau"
                       className="w-24 h-24 object-contain border-2 rounded-full"
                     />
                     <button
                       type="button"
                       onClick={removeImage}
                       className="absolute top-0 right-0 bg-white rounded-full p-1 text-red-500 shadow"
-                      aria-label="Bild löschen"
                     >
                       ×
                     </button>
