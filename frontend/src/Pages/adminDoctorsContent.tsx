@@ -7,6 +7,9 @@ const LIST_API = "/doctors";
 // admin write endpoints
 const ADMIN_API = "/Doctors";
 
+// If you're running locally, set VITE_API_URL=http://localhost:8081
+const API_URL = import.meta.env.VITE_API_URL ?? "";
+
 const days = [
   "Montag",
   "Dienstag",
@@ -120,7 +123,11 @@ export default function AdminDoctorsContent() {
           isVerified: Boolean(d.isVerified),
           imagePath: d.imagePath,
         });
-        setPreview(d.imagePath ? `/images/Doctors/${d.imagePath}` : null);
+        setPreview(
+          d.imagePath
+            ? `${API_URL}/images/Doctors/${d.imagePath}`
+            : null
+        );
         setMode("edit");
       } catch (err) {
         console.error(err);
@@ -166,7 +173,6 @@ export default function AdminDoctorsContent() {
     num = Math.round(num * 100) / 100;
     const fixed = num.toFixed(2).replace(".", ",");
 
-    // build payload
     const payload: any = {
       ...form,
       price: fixed,
@@ -177,7 +183,6 @@ export default function AdminDoctorsContent() {
     };
     delete payload.imagePath;
 
-    // form-data
     const fd = new FormData();
     Object.entries(payload).forEach(([k, v]) => {
       if (v != null) fd.append(k, String(v));
@@ -239,7 +244,7 @@ export default function AdminDoctorsContent() {
             <div className="flex items-center gap-3">
               {d.imagePath && (
                 <img
-                  src={`/images/Doctors/${d.imagePath}`}
+                  src={`${API_URL}/images/Doctors/${d.imagePath}`}
                   alt={d.name}
                   className="w-10 h-10 rounded-full object-cover border-2"
                 />
@@ -313,7 +318,6 @@ export default function AdminDoctorsContent() {
                 )}
               </div>
 
-              {/* Rest of form fields… */}
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium mb-1">Name</label>
@@ -325,6 +329,7 @@ export default function AdminDoctorsContent() {
                   className="w-full border p-2 rounded"
                 />
               </div>
+
               {/* Beschreibung */}
               <div>
                 <label className="block text-sm font-medium mb-1">
@@ -338,6 +343,7 @@ export default function AdminDoctorsContent() {
                   className="w-full border p-2 rounded"
                 />
               </div>
+
               {/* Telefon + E-Mail */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -364,6 +370,7 @@ export default function AdminDoctorsContent() {
                   />
                 </div>
               </div>
+
               {/* Adresse + Preis */}
               <div>
                 <label className="block text-sm font-medium mb-1">
