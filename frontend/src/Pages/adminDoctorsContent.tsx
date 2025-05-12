@@ -1,17 +1,21 @@
-// src/components/AdminDoctorsContent.tsx
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
 
-// public read endpoint
+// public read endpoints
 const LIST_API = "/doctors";
-// admin write endpoint
+// admin write endpoints
 const ADMIN_API = "/Doctors";
 
-// your backend URL for static assets
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
-
-const days = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+const days = [
+  "Montag",
+  "Dienstag",
+  "Mittwoch",
+  "Donnerstag",
+  "Freitag",
+  "Samstag",
+  "Sonntag",
+];
 const times: string[] = [];
 for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 30) {
@@ -29,8 +33,8 @@ type Doctor = {
   price: string;
   startDay: string;
   endDay: string;
-  startTime: string;   // "HH:mm"
-  endTime: string;     // "HH:mm"
+  startTime: string; // "HH:mm"
+  endTime: string;   // "HH:mm"
   isVerified: boolean;
   imagePath: string | null;
   coverImagePath: string | null;
@@ -76,15 +80,17 @@ export default function AdminDoctorsContent() {
     (async () => {
       try {
         const res = await apiClient.get<{ doctors: Doctor[] }>(LIST_API, {
-          params: { pageNumber: 1, pageSize: 50 }
+          params: { pageNumber: 1, pageSize: 50 },
         });
-        setDoctors(res.data.doctors.map(d => ({
-          ...d,
-          price: Number(d.price) || 0,
-          startTime: formatTime(d.startTime),
-          endTime: formatTime(d.endTime),
-          coverImagePath: d.coverImagePath || DEFAULT_COVER,
-        })));
+        setDoctors(
+          res.data.doctors.map((d) => ({
+            ...d,
+            price: Number(d.price) || 0,
+            startTime: formatTime(d.startTime),
+            endTime: formatTime(d.endTime),
+            coverImagePath: d.coverImagePath || DEFAULT_COVER,
+          }))
+        );
       } catch (err) {
         console.error(err);
         alert("Fehler beim Laden der Ärzte");
@@ -114,11 +120,7 @@ export default function AdminDoctorsContent() {
           isVerified: Boolean(d.isVerified),
           imagePath: d.imagePath,
         });
-        setPreview(
-          d.imagePath
-            ? `${API_URL}/images/Doctors/${d.imagePath}`
-            : null
-        );
+        setPreview(d.imagePath ? `/images/Doctors/${d.imagePath}` : null);
         setMode("edit");
       } catch (err) {
         console.error(err);
@@ -139,9 +141,9 @@ export default function AdminDoctorsContent() {
   // 3) Handle form field changes
   const onChange = (e: React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
-    setForm(f => ({
+    setForm((f) => ({
       ...f,
-      [name]: type === "checkbox" ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
@@ -157,7 +159,6 @@ export default function AdminDoctorsContent() {
   // 5) Submit add / edit
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     // normalize price
     let raw = form.price.replace(/,/g, ".");
     let num = parseFloat(raw);
@@ -165,16 +166,18 @@ export default function AdminDoctorsContent() {
     num = Math.round(num * 100) / 100;
     const fixed = num.toFixed(2).replace(".", ",");
 
+    // build payload
     const payload: any = {
       ...form,
       price: fixed,
       startTime: form.startTime,
       endTime: form.endTime,
       coverImageUrl: DEFAULT_COVER,
-      profileUrl: form.imagePath
+      profileUrl: form.imagePath,
     };
     delete payload.imagePath;
 
+    // form-data
     const fd = new FormData();
     Object.entries(payload).forEach(([k, v]) => {
       if (v != null) fd.append(k, String(v));
@@ -189,24 +192,19 @@ export default function AdminDoctorsContent() {
       } else if (selected) {
         await apiClient.put(`${ADMIN_API}/${selected.id}`, fd, cfg);
       }
-      // …then re-fetch…
-    } catch (err) {
-      console.error(err);
-      alert("Speichern fehlgeschlagen");
-    }
-
-
       // refresh list
       const list = await apiClient.get<{ doctors: Doctor[] }>(LIST_API, {
-        params: { pageNumber: 1, pageSize: 50 }
+        params: { pageNumber: 1, pageSize: 50 },
       });
-      setDoctors(list.data.doctors.map(d => ({
-        ...d,
-        price: Number(d.price) || 0,
-        startTime: formatTime(d.startTime),
-        endTime: formatTime(d.endTime),
-        coverImagePath: d.coverImagePath || DEFAULT_COVER,
-      })));
+      setDoctors(
+        list.data.doctors.map((d) => ({
+          ...d,
+          price: Number(d.price) || 0,
+          startTime: formatTime(d.startTime),
+          endTime: formatTime(d.endTime),
+          coverImagePath: d.coverImagePath || DEFAULT_COVER,
+        }))
+      );
       closeModal();
     } catch (err) {
       console.error(err);
@@ -219,7 +217,7 @@ export default function AdminDoctorsContent() {
     if (!confirm("Wirklich löschen?")) return;
     try {
       await apiClient.delete(`${ADMIN_API}/${id}`);
-      setDoctors(curr => curr.filter(d => d.id !== id));
+      setDoctors((curr) => curr.filter((d) => d.id !== id));
     } catch {
       alert("Löschen fehlgeschlagen");
     }
@@ -233,12 +231,15 @@ export default function AdminDoctorsContent() {
       </div>
 
       <ul className="divide-y">
-        {doctors.map(d => (
-          <li key={d.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
+        {doctors.map((d) => (
+          <li
+            key={d.id}
+            className="flex justify-between items-center p-2 hover:bg-gray-50"
+          >
             <div className="flex items-center gap-3">
               {d.imagePath && (
                 <img
-                  src={`${API_URL}/images/Doctors/${d.imagePath}`}
+                  src={`/images/Doctors/${d.imagePath}`}
                   alt={d.name}
                   className="w-10 h-10 rounded-full object-cover border-2"
                 />
@@ -264,13 +265,15 @@ export default function AdminDoctorsContent() {
         >
           <div
             ref={modalRef}
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             className="bg-white w-full max-w-lg max-h-[80vh] overflow-auto rounded-lg p-6"
           >
             <button
               className="absolute top-2 right-2 text-gray-500 text-2xl"
               onClick={closeModal}
-            >×</button>
+            >
+              ×
+            </button>
 
             <h3 className="text-2xl font-bold mb-4">
               {mode === "edit" ? "Arzt bearbeiten" : "Neuer Arzt"}
@@ -279,7 +282,9 @@ export default function AdminDoctorsContent() {
             <form onSubmit={onSubmit} className="space-y-4">
               {/* Profilbild */}
               <div>
-                <label className="block text-sm font-medium mb-1">Profilbild</label>
+                <label className="block text-sm font-medium mb-1">
+                  Profilbild
+                </label>
                 {preview ? (
                   <div className="relative inline-block">
                     <img
@@ -295,7 +300,9 @@ export default function AdminDoctorsContent() {
                         setRemove(true);
                       }}
                       className="absolute top-0 right-0 bg-white rounded-full p-1 text-red-500"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </div>
                 ) : (
                   <input
@@ -306,6 +313,7 @@ export default function AdminDoctorsContent() {
                 )}
               </div>
 
+              {/* Rest of form fields… */}
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium mb-1">Name</label>
@@ -317,10 +325,11 @@ export default function AdminDoctorsContent() {
                   className="w-full border p-2 rounded"
                 />
               </div>
-
               {/* Beschreibung */}
               <div>
-                <label className="block text-sm font-medium mb-1">Beschreibung</label>
+                <label className="block text-sm font-medium mb-1">
+                  Beschreibung
+                </label>
                 <textarea
                   name="description"
                   value={form.description}
@@ -329,11 +338,12 @@ export default function AdminDoctorsContent() {
                   className="w-full border p-2 rounded"
                 />
               </div>
-
               {/* Telefon + E-Mail */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Telefon</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Telefon
+                  </label>
                   <input
                     name="phone"
                     value={form.phone}
@@ -342,7 +352,9 @@ export default function AdminDoctorsContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">E-Mail</label>
+                  <label className="block text-sm font-medium mb-1">
+                    E-Mail
+                  </label>
                   <input
                     name="email"
                     type="email"
@@ -352,10 +364,11 @@ export default function AdminDoctorsContent() {
                   />
                 </div>
               </div>
-
-              {/* Adresse */}
+              {/* Adresse + Preis */}
               <div>
-                <label className="block text-sm font-medium mb-1">Adresse</label>
+                <label className="block text-sm font-medium mb-1">
+                  Adresse
+                </label>
                 <input
                   name="address"
                   value={form.address}
@@ -363,10 +376,10 @@ export default function AdminDoctorsContent() {
                   className="w-full border p-2 rounded"
                 />
               </div>
-
-              {/* Preis */}
               <div>
-                <label className="block text-sm font-medium mb-1">Preis (€)</label>
+                <label className="block text-sm font-medium mb-1">
+                  Preis (€)
+                </label>
                 <input
                   name="price"
                   value={form.price}
@@ -387,8 +400,10 @@ export default function AdminDoctorsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => (
-                        <option key={d} value={d}>{d}</option>
+                      {days.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -400,8 +415,10 @@ export default function AdminDoctorsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => (
-                        <option key={d} value={d}>{d}</option>
+                      {days.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -415,8 +432,10 @@ export default function AdminDoctorsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => (
-                        <option key={t} value={t}>{t}</option>
+                      {times.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -428,8 +447,10 @@ export default function AdminDoctorsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => (
-                        <option key={t} value={t}>{t}</option>
+                      {times.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -449,7 +470,7 @@ export default function AdminDoctorsContent() {
                 </label>
               </div>
 
-              {/* Actions */}
+              {/* Aktionen */}
               <div className="flex justify-end space-x-4 mt-6">
                 <Button type="submit">
                   {mode === "edit" ? "Speichern" : "Hinzufügen"}
