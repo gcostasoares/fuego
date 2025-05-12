@@ -185,10 +185,16 @@ export default function AdminDoctorsContent() {
     try {
       const cfg = { headers: { "Content-Type": "multipart/form-data" } };
       if (mode === "add") {
-        await apiClient.post(ADMIN_API, fd, cdg);
+        await apiClient.post(ADMIN_API, fd, cfg);
       } else if (selected) {
         await apiClient.put(`${ADMIN_API}/${selected.id}`, fd, cfg);
       }
+      // …then re-fetch…
+    } catch (err) {
+      console.error(err);
+      alert("Speichern fehlgeschlagen");
+    }
+
 
       // refresh list
       const list = await apiClient.get<{ doctors: Doctor[] }>(LIST_API, {
