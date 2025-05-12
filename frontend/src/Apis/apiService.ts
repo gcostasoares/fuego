@@ -2,34 +2,33 @@
 import axios, { AxiosError, AxiosResponse } from "axios";
 import type { InternalAxiosRequestConfig } from "axios";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+// Base URL of your API (set via Vite)
+const API_URL    = import.meta.env.VITE_API_URL!;
+const ADMIN_KEY  = import.meta.env.VITE_ADMIN_KEY!;
 
 const apiClient = axios.create({
   baseURL: API_URL,
   timeout: 50000,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    // Always send the admin key so your /Gallery, /Products, etc. endpoints pass authenticateAdmin
+    "x-admin-key": ADMIN_KEY,
+  },
 });
 
-// Attach admin key and JWT automatically
+// Attach JWT automatically to every request
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const adminKey = localStorage.getItem("adminKey");
-    if (adminKey && config.headers) {
-      config.headers["x-admin-key"] = adminKey;
-      console.log("Admin key header added:", adminKey);
-    }
-
     const token = localStorage.getItem("token");
     if (token && config.headers) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
-
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Handle 401 globally
+// Handle 401 globally: clear out credentials and redirect
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error: AxiosError) => {
