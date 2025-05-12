@@ -21,6 +21,16 @@ app.use("/images", (req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   next();
 }, express.static("public/images"));
+app.use(
+  cors({
+    origin: [
+      "https://fuego-dev.onrender.com",
+      "https://fuego-ombm.onrender.com",
+    ],
+    methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+    allowedHeaders: ["Content-Type","Authorization","x-admin-key"],
+  })
+);
 
 const dbConfig = {
   user:           process.env.DB_USER,
