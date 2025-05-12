@@ -14,7 +14,7 @@ interface Logo {
   imagePath: string | null;
 }
 
-// strip off any leading “01- ” etc.
+// Remove any leading “01- ” etc.
 const stripPrefix = (p: string | null) =>
   p ? p.replace(/^\d+\s*-\s*/, "") : "";
 
@@ -27,20 +27,20 @@ export default function AdminPartnerLogoContent() {
   const [file, setFile] = useState<File | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const API_URL = import.meta.env.VITE_API_URL!;
-  const headers = { "x-admin-key": localStorage.getItem("adminKey") || "" };
+  // Use VITE_API_URL (falls back to localhost)
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
 
-  // 1) fetch metadata
+  // 1) Fetch current logos
   const fetchLogos = async () => {
     try {
-      const { data } = await apiClient.get<Logo[]>("/PartnerLogos", { headers });
-      setLogos(
-        [...data].sort((a, b) => {
-          const na = Number((a.imagePath ?? "").match(/^\d+/)?.[0] || 999);
-          const nb = Number((b.imagePath ?? "").match(/^\d+/)?.[0] || 999);
-          return na - nb;
-        })
-      );
+      const r = await apiClient.get<Logo[]>("/PartnerLogos");
+      // sort by numeric prefix if present
+      const sorted = [...r.data].sort((a, b) => {
+        const na = Number((a.imagePath ?? "").match(/^\d+/)?.[0] || 999);
+        const nb = Number((b.imagePath ?? "").match(/^\d+/)?.[0] || 999);
+        return na - nb;
+      });
+      setLogos(sorted);
     } catch (err) {
       console.error("Error fetching partner logos:", err);
     }
@@ -50,21 +50,24 @@ export default function AdminPartnerLogoContent() {
     fetchLogos();
   }, []);
 
+  // Open “add” or “edit” modal
   const openModal = (logo?: Logo) => {
     if (logo) {
       setSelected(logo);
       setPreview(logo.imagePath);
+      setFile(null);
       setMode("edit");
     } else {
       setSelected(null);
       setPreview(null);
+      setFile(null);
       setMode("add");
     }
-    setFile(null);
     setModalOpen(true);
   };
   const closeModal = () => setModalOpen(false);
 
+  // When user selects a file
   const onImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -79,7 +82,7 @@ export default function AdminPartnerLogoContent() {
     setPreview(null);
   };
 
-  // 2) create or replace
+  // Add or replace logo
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "add" && !file) {
@@ -91,9 +94,9 @@ export default function AdminPartnerLogoContent() {
 
     try {
       if (mode === "add") {
-        await apiClient.post("/PartnerLogos", fd, { headers });
+        await apiClient.post("/PartnerLogos", fd);
       } else if (selected) {
-        await apiClient.put(`/PartnerLogos/${selected.id}`, fd, { headers });
+        await apiClient.put(`/PartnerLogos/${selected.id}`, fd);
       }
       await fetchLogos();
       closeModal();
@@ -103,10 +106,11 @@ export default function AdminPartnerLogoContent() {
     }
   };
 
+  // Delete logo
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
-      await apiClient.delete(`/PartnerLogos/${id}`, { headers });
+      await apiClient.delete(`/PartnerLogos/${id}`);
       await fetchLogos();
     } catch (err) {
       console.error("Delete failed:", err);
@@ -114,7 +118,7 @@ export default function AdminPartnerLogoContent() {
     }
   };
 
-  // 3) reorder
+  // Reorder on drag end, then persist new names
   const onDragEnd = async (result: DropResult) => {
     const { source, destination } = result;
     if (!destination || source.index === destination.index) return;
@@ -125,16 +129,15 @@ export default function AdminPartnerLogoContent() {
     setLogos(reordered);
 
     try {
-      for (let i = 0; i < reordered.length; i++) {
-        const l = reordered[i];
+      // Rename on server by updating imagePath with new numeric prefix
+      for (let idx = 0; idx < reordered.length; idx++) {
+        const l = reordered[idx];
         const ext = stripPrefix(l.imagePath);
-        const newName = `${(i + 1).toString().padStart(2, "0")}-${ext}`;
+        const newName = `${(idx + 1)
+          .toString()
+          .padStart(2, "0")}-${ext}`;
         if (l.imagePath !== newName) {
-          await apiClient.put(
-            `/PartnerLogos/${l.id}`,
-            { imagePath: newName },
-            { headers }
-          );
+          await apiClient.put(`/PartnerLogos/${l.id}`, { imagePath: newName });
         }
       }
       await fetchLogos();
@@ -160,7 +163,7 @@ export default function AdminPartnerLogoContent() {
               className="divide-y"
             >
               {logos.map((l, idx) => {
-                const pos = l.imagePath?.split("-")[0] ?? "–";
+                const position = l.imagePath?.split("-")[0] ?? "";
                 return (
                   <Draggable key={l.id} draggableId={l.id} index={idx}>
                     {(p) => (
@@ -175,7 +178,7 @@ export default function AdminPartnerLogoContent() {
                             <img
                               src={`${API_URL}/images/PartnerLogos/${l.imagePath}`}
                               alt=""
-                              className="w-10 h-10 object-contain rounded-full"
+                              className="w-10 h-10 object-contain border-2 rounded-full"
                               loading="lazy"
                             />
                           )}
@@ -183,7 +186,7 @@ export default function AdminPartnerLogoContent() {
                             className="cursor-pointer text-blue-600 hover:underline"
                             onClick={() => openModal(l)}
                           >
-                            {pos}
+                            {position || "–"}
                           </span>
                         </div>
                         <Button
@@ -239,7 +242,7 @@ export default function AdminPartnerLogoContent() {
                           : `${API_URL}/images/PartnerLogos/${preview}`
                       }
                       alt="Vorschau"
-                      className="w-24 h-24 object-contain rounded-full"
+                      className="w-24 h-24 object-contain border-2 rounded-full"
                     />
                     <button
                       type="button"
