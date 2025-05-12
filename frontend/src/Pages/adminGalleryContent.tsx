@@ -119,7 +119,7 @@ export default function AdminGalleryContent() {
     e.preventDefault();
 
     const payload = {
-      title:   form.title.trim() || "(Ohne Titel)",
+      title:    form.title.trim() || "(Ohne Titel)",
       subTitle: form.subTitle,
       isGrid,
       isSlide,
