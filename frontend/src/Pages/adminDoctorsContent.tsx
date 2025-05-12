@@ -183,10 +183,11 @@ export default function AdminDoctorsContent() {
     else if (removeProfile) fd.append("removeProfile", "true");
 
     try {
+      const cfg = { headers: { "Content-Type": "multipart/form-data" } };
       if (mode === "add") {
-        await apiClient.post(ADMIN_API, fd);
+        await apiClient.post(ADMIN_API, fd, cdg);
       } else if (selected) {
-        await apiClient.put(`${ADMIN_API}/${selected.id}`, fd);
+        await apiClient.put(`${ADMIN_API}/${selected.id}`, fd, cfg);
       }
 
       // refresh list
