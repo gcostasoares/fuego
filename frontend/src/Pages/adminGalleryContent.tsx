@@ -27,6 +27,9 @@ interface Product {
 // initial empty form
 const defaultForm = { title: "", subTitle: "" };
 
+// full backend URL for images (set VITE_API_URL in .env)
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
+
 export default function AdminGalleryContent() {
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [products, setProducts]   = useState<Product[]>([]);
@@ -41,7 +44,7 @@ export default function AdminGalleryContent() {
   const [open, setOpen]      = useState(false);
   const modalRef             = useRef<HTMLDivElement>(null);
 
-  // pull admin key from localStorage
+  // pull admin key from localStorage (you already stored it)
   const adminKey = localStorage.getItem("adminKey") || "";
   const headers  = { "x-admin-key": adminKey };
 
@@ -119,7 +122,7 @@ export default function AdminGalleryContent() {
     e.preventDefault();
 
     const payload = {
-      title:    form.title.trim() || "(Ohne Titel)",
+      title:   form.title.trim() || "(Ohne Titel)",
       subTitle: form.subTitle,
       isGrid,
       isSlide,
@@ -352,7 +355,7 @@ export default function AdminGalleryContent() {
                                     <div className="flex items-center gap-2">
                                       {img && (
                                         <img
-                                          src={`/images/Products/${img}`}
+                                          src={`${API_URL}/images/Products/${img}`}
                                           className="w-8 h-8 object-cover rounded"
                                         />
                                       )}
@@ -428,7 +431,7 @@ export default function AdminGalleryContent() {
                                     <div className="flex items-center gap-2">
                                       {img && (
                                         <img
-                                          src={`/images/Products/${img}`}
+                                          src={`${API_URL}/images/Products/${img}`}
                                           className="w-8 h-8 object-cover rounded"
                                         />
                                       )}
