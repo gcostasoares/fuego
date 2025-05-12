@@ -14,7 +14,7 @@ interface Logo {
   imagePath: string | null;
 }
 
-// Strip any leading “01- ” etc.
+// Strip any leading “01-” prefix
 const stripPrefix = (p: string | null) =>
   p ? p.replace(/^\d+\s*-\s*/, "") : "";
 
@@ -27,13 +27,15 @@ export default function AdminPartnerLogoContent() {
   const [file, setFile] = useState<File | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
+  // for img srcs
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
 
-  // Fetch and sort
+  // 1) Fetch all logos
   const fetchLogos = async () => {
     try {
-      const r = await apiClient.get<Logo[]>("/PartnerLogos");
-      const sorted = [...r.data].sort((a, b) => {
+      const { data } = await apiClient.get<Logo[]>("/PartnerLogos");
+      // sort by numeric prefix
+      const sorted = [...data].sort((a, b) => {
         const na = Number((a.imagePath ?? "").match(/^\d+/)?.[0] || 999);
         const nb = Number((b.imagePath ?? "").match(/^\d+/)?.[0] || 999);
         return na - nb;
@@ -48,6 +50,7 @@ export default function AdminPartnerLogoContent() {
     fetchLogos();
   }, []);
 
+  // open add/edit modal
   const openModal = (logo?: Logo) => {
     if (logo) {
       setSelected(logo);
@@ -63,6 +66,7 @@ export default function AdminPartnerLogoContent() {
   };
   const closeModal = () => setModalOpen(false);
 
+  // on file select
   const onImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -77,7 +81,7 @@ export default function AdminPartnerLogoContent() {
     setPreview(null);
   };
 
-  // NOTE: we do NOT set Content-Type here
+  // **Upload** or **Replace** a logo
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === "add" && !file) {
@@ -89,9 +93,13 @@ export default function AdminPartnerLogoContent() {
 
     try {
       if (mode === "add") {
-        await apiClient.post("/PartnerLogos", fd);
+        await apiClient.post("/PartnerLogos", fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       } else if (selected) {
-        await apiClient.put(`/PartnerLogos/${selected.id}`, fd);
+        await apiClient.put(`/PartnerLogos/${selected.id}`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
       }
       await fetchLogos();
       closeModal();
@@ -101,6 +109,7 @@ export default function AdminPartnerLogoContent() {
     }
   };
 
+  // delete
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
@@ -112,13 +121,14 @@ export default function AdminPartnerLogoContent() {
     }
   };
 
+  // reorder and persist new prefixes
   const onDragEnd = async (result: DropResult) => {
     const { source, destination } = result;
     if (!destination || source.index === destination.index) return;
 
     const reordered = Array.from(logos);
-    const [moved] = reordered.splice(source.index, 1);
-    reordered.splice(destination.index, 0, moved);
+    const [m] = reordered.splice(source.index, 1);
+    reordered.splice(destination.index, 0, m);
     setLogos(reordered);
 
     try {
@@ -127,7 +137,11 @@ export default function AdminPartnerLogoContent() {
         const ext = stripPrefix(l.imagePath);
         const newName = `${(idx + 1).toString().padStart(2, "0")}-${ext}`;
         if (l.imagePath !== newName) {
-          await apiClient.put(`/PartnerLogos/${l.id}`, { imagePath: newName });
+          await apiClient.put(
+            `/PartnerLogos/${l.id}`,
+            { imagePath: newName },
+            { headers: { "Content-Type": "application/json" } }
+          );
         }
       }
       await fetchLogos();
@@ -149,7 +163,7 @@ export default function AdminPartnerLogoContent() {
           {(prov) => (
             <ul ref={prov.innerRef} {...prov.droppableProps} className="divide-y">
               {logos.map((l, idx) => {
-                const pos = l.imagePath?.split("-")[0] ?? "";
+                const pos = l.imagePath?.split("-")[0] ?? "–";
                 return (
                   <Draggable key={l.id} draggableId={l.id} index={idx}>
                     {(p) => (
@@ -171,7 +185,7 @@ export default function AdminPartnerLogoContent() {
                             className="cursor-pointer text-blue-600 hover:underline"
                             onClick={() => openModal(l)}
                           >
-                            {pos || "–"}
+                            {pos}
                           </span>
                         </div>
                         <Button
@@ -226,6 +240,7 @@ export default function AdminPartnerLogoContent() {
                           ? preview
                           : `${API_URL}/images/PartnerLogos/${preview}`
                       }
+                      alt="Vorschau"
                       className="w-24 h-24 object-contain border-2 rounded-full"
                     />
                     <button
