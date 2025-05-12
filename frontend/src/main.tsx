@@ -1,8 +1,14 @@
+// src/main.tsx
 import "vanilla-cookieconsent/dist/cookieconsent.css";
 import "./index.scss";
 
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { createRoot } from "react-dom/client";
+
+// seed your VITE_ADMIN_KEY into localStorage as soon as possible
+if (import.meta.env.VITE_ADMIN_KEY) {
+  localStorage.setItem("adminKey", import.meta.env.VITE_ADMIN_KEY);
+}
 
 // Import the generated route tree
 import CookieConsentComponent from "./components/CookieConsentComponent";
