@@ -8,7 +8,7 @@ function parsePrice(input) {
 const str = (input ?? "").toString().trim().replace(/,/g, ".");
 const num = parseFloat(str);
 if (isNaN(num)) return 0;
-return Math.round(num \* 100) / 100;
+return Math.round(num * 100) / 100;
 }
 
 function getPool() {
