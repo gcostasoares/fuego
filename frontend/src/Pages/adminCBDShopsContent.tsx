@@ -1,118 +1,94 @@
+// src/components/AdminCBDShopsContent.tsx
+
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
 
 const days = [
-  "Montag", "Dienstag", "Mittwoch",
-  "Donnerstag", "Freitag", "Samstag", "Sonntag",
+  "Montag","Dienstag","Mittwoch",
+  "Donnerstag","Freitag","Samstag","Sonntag",
 ];
 
 const times: string[] = [];
 for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 30) {
-    times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    times.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
   }
 }
 
-interface HeadShop {
+interface CBDShop {
   id: string;
   name: string;
   description: string;
   phone: string;
   email: string;
   address: string;
-  price: string;       // formatted "xx,yy"
+  price: string;            // formatted "xx,yy"
   startDay: string;
   endDay: string;
-  startTime: string;   // "HH:mm"
-  endTime: string;     // "HH:mm"
+  startTime: string;        // "HH:mm"
+  endTime: string;          // "HH:mm"
   isVerified: boolean;
   imagePath: string | null;
   coverImagePath: string | null;
 }
 
-type Form = Omit<HeadShop, "id">;
+type Form = Omit<CBDShop, "id">;
 
 const defaultForm: Form = {
-  name: "",
-  description: "",
-  phone: "",
-  email: "",
-  address: "",
+  name: "", description: "",
+  phone: "", email: "", address: "",
   price: "",
-  startDay: days[0],
-  endDay: days[0],
-  startTime: times[0],
-  endTime: times[0],
+  startDay: days[0], endDay: days[0],
+  startTime: times[0], endTime: times[0],
   isVerified: false,
-  imagePath: null,
-  coverImagePath: null,
+  imagePath: null, coverImagePath: null,
 };
 
-export default function AdminHeadShopsContent() {
-  const [shops, setShops] = useState<HeadShop[]>([]);
-  const [selected, setSelected] = useState<HeadShop | null>(null);
-  const [form, setForm] = useState<Form>(defaultForm);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [mode, setMode] = useState<"add" | "edit">("add");
-  const [open, setOpen] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
+export default function AdminCBDShopsContent() {
+  const [shops, setShops]               = useState<CBDShop[]>([]);
+  const [selected, setSelected]         = useState<CBDShop|null>(null);
+  const [form, setForm]                 = useState<Form>(defaultForm);
+  const [imageFile, setImageFile]       = useState<File|null>(null);
+  const [coverFile, setCoverFile]       = useState<File|null>(null);
+  const [imagePreview, setImagePreview] = useState<string|null>(null);
+  const [coverPreview, setCoverPreview] = useState<string|null>(null);
+  const [mode, setMode]                 = useState<"add"|"edit">("add");
+  const [open, setOpen]                 = useState(false);
+  const modalRef                        = useRef<HTMLDivElement>(null);
 
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
   const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // Fetch head shops
+  // 1) GET list (axios)
   const fetchShops = async () => {
     try {
-      const res = await apiClient.get<{ headShops: HeadShop[] }>(
-        "/HeadShops",
-        {
-          params: { pageNumber: 1, pageSize: 50 },
-          headers: { "x-admin-key": ADMIN_KEY },
-        }
-      );
-      setShops(
-        res.data.headShops.map(it => ({
-          ...it,
-          price: Number(it.price).toFixed(2).replace(".", ","),
-          startTime: it.startTime,
-          endTime: it.endTime,
-        }))
-      );
+      const res = await apiClient.get<{ cbdShops:any[] }>("/CBDShops", {
+        params: { pageNumber:1, pageSize:50 },
+        headers: { "x-admin-key": ADMIN_KEY }
+      });
+      setShops(res.data.cbdShops.map(it => ({
+        ...it,
+        price: Number(it.price).toFixed(2).replace(".",","),
+        startTime: it.startTime,
+        endTime: it.endTime,
+      })));
     } catch (err) {
       console.error(err);
-      alert("Fehler beim Laden der Head Shops");
+      alert("Fehler beim Laden der CBD Shops");
     }
   };
-
   useEffect(() => {
     fetchShops();
   }, []);
 
-  // Open modal for add or edit
-  const openModal = (shop?: HeadShop) => {
+  // 2) Open modal
+  const openModal = (shop?:CBDShop) => {
     if (shop) {
-      // normalize ISO timestamps down to "HH:mm"
-      const normalize = (ts: string) =>
-        ts.includes("T") ? ts.substring(11, 16) : ts;
-
       setSelected(shop);
-      setForm({
-        ...shop,
-        startTime: normalize(shop.startTime),
-        endTime: normalize(shop.endTime),
-      });
-      setImagePreview(
-        shop.imagePath ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}` : null
-      );
-      setCoverPreview(
-        shop.coverImagePath
-          ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}`
-          : null
-      );
+      setForm(shop);
+      setImagePreview(shop.imagePath ? `${IMG_BASE}/images/CBDShops/${shop.imagePath}` : null);
+      setCoverPreview(shop.coverImagePath ? `${IMG_BASE}/images/CBDShops/${shop.coverImagePath}` : null);
       setMode("edit");
     } else {
       setSelected(null);
@@ -127,16 +103,13 @@ export default function AdminHeadShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // Handle form inputs
-  const onChange = (e: React.ChangeEvent<any>) => {
+  // 3) Handle inputs
+  const onChange = (e:React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
-    setForm(f => ({
-      ...f,
-      [name]: type === "checkbox" ? checked : value
-    } as any));
+    setForm(f => ({ ...f, [name]: type==="checkbox"?checked:value }));
   };
 
-  // Handle file inputs
+  // 4) Handle file picks
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -147,14 +120,15 @@ export default function AdminHeadShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // Submit add/update
-  const onSubmit = async (e: React.FormEvent) => {
+  // 5) CREATE / UPDATE via fetch to preserve FormData boundary
+  const onSubmit = async (e:React.FormEvent) => {
     e.preventDefault();
+
     // normalize price
-    let raw = form.price.replace(",", ".").trim();
+    let raw = form.price.replace(",",".").trim();
     let num = parseFloat(raw);
     if (isNaN(num)) num = 0;
-    num = Math.round(num * 100) / 100;
+    num = Math.round(num*100)/100;
     const priceFixed = num.toFixed(2);
 
     const fd = new FormData();
@@ -172,21 +146,20 @@ export default function AdminHeadShopsContent() {
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
 
-    const url =
-      mode === "add"
-        ? `${IMG_BASE}/HeadShops`
-        : `${IMG_BASE}/HeadShops/${selected!.id}`;
+    const url = mode==="add"
+      ? `${IMG_BASE}/CBDShops`
+      : `${IMG_BASE}/CBDShops/${selected!.id}`;
 
     try {
       const res = await fetch(url, {
-        method: mode === "add" ? "POST" : "PUT",
+        method: mode==="add" ? "POST" : "PUT",
         headers: { "x-admin-key": ADMIN_KEY },
         body: fd
       });
       const txt = await res.text();
       if (!res.ok) {
         console.error("Server responded:", txt);
-        alert("Server-Fehler:\n" + txt);
+        alert("Server-Fehler:\n"+txt);
         return;
       }
       await fetchShops();
@@ -197,11 +170,11 @@ export default function AdminHeadShopsContent() {
     }
   };
 
-  // Delete
-  const onDelete = async (id: string) => {
+  // 6) DELETE (axios)
+  const onDelete = async (id:string) => {
     if (!confirm("Löschen?")) return;
     try {
-      await apiClient.delete(`/HeadShops/${id}`, {
+      await apiClient.delete(`/CBDShops/${id}`, {
         headers: { "x-admin-key": ADMIN_KEY }
       });
       await fetchShops();
@@ -212,20 +185,20 @@ export default function AdminHeadShopsContent() {
 
   return (
     <div>
-      {/* Header */}
+      {/* header */}
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Head Shops</h2>
-        <Button onClick={() => openModal()}>Neuer Head Shop</Button>
+        <h2 className="text-2xl font-bold">CBD Shops</h2>
+        <Button onClick={()=>openModal()}>Neuer CBD Shop</Button>
       </div>
 
-      {/* List */}
+      {/* list */}
       <ul className="divide-y">
-        {shops.map(s => (
+        {shops.map(s=>(
           <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
             <div className="flex items-center gap-3">
               {s.imagePath && (
                 <img
-                  src={`${IMG_BASE}/images/HeadShops/${s.imagePath}`}
+                  src={`${IMG_BASE}/images/CBDShops/${s.imagePath}`}
                   alt={s.name}
                   className="w-10 h-10 rounded-full object-cover border-2"
                   loading="lazy"
@@ -233,19 +206,19 @@ export default function AdminHeadShopsContent() {
               )}
               <span
                 className="cursor-pointer text-blue-600 hover:underline"
-                onClick={() => openModal(s)}
+                onClick={()=>openModal(s)}
               >
                 {s.name}
               </span>
             </div>
-            <Button variant="destructive" onClick={() => onDelete(s.id)}>
+            <Button variant="destructive" onClick={()=>onDelete(s.id)}>
               Löschen
             </Button>
           </li>
         ))}
       </ul>
 
-      {/* Modal */}
+      {/* modal */}
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -253,19 +226,21 @@ export default function AdminHeadShopsContent() {
         >
           <div
             ref={modalRef}
-            onClick={e => e.stopPropagation()}
+            onClick={e=>e.stopPropagation()}
             className="bg-white w-full max-w-lg max-h-[80vh] overflow-auto rounded-lg p-6"
           >
+
             <button
               className="absolute top-2 right-2 text-gray-500 text-2xl"
               onClick={closeModal}
             >×</button>
 
             <h3 className="text-2xl font-bold mb-4">
-              {mode === "edit" ? "Head Shop bearbeiten" : "Neuer Head Shop"}
+              {mode==="edit" ? "CBD Shop bearbeiten" : "Neuer CBD Shop"}
             </h3>
 
             <form onSubmit={onSubmit} className="space-y-4">
+
               {/* Profilbild */}
               <div>
                 <label className="block text-sm font-medium mb-1">Profilbild</label>
@@ -278,7 +253,10 @@ export default function AdminHeadShopsContent() {
                     />
                     <button
                       type="button"
-                      onClick={() => { setImageFile(null); setImagePreview(null); }}
+                      onClick={()=>{
+                        setImageFile(null);
+                        setImagePreview(null);
+                      }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
                     >×</button>
                   </div>
@@ -287,7 +265,7 @@ export default function AdminHeadShopsContent() {
                     name="image"
                     type="file"
                     accept=".png,.jpg,.jpeg"
-                    onChange={e => handleFile(e, setImageFile, setImagePreview)}
+                    onChange={e=>handleFile(e, setImageFile, setImagePreview)}
                   />
                 )}
               </div>
@@ -304,7 +282,10 @@ export default function AdminHeadShopsContent() {
                     />
                     <button
                       type="button"
-                      onClick={() => { setCoverFile(null); setCoverPreview(null); }}
+                      onClick={()=>{
+                        setCoverFile(null);
+                        setCoverPreview(null);
+                      }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
                     >×</button>
                   </div>
@@ -313,7 +294,7 @@ export default function AdminHeadShopsContent() {
                     name="cover"
                     type="file"
                     accept=".png,.jpg,.jpeg"
-                    onChange={e => handleFile(e, setCoverFile, setCoverPreview)}
+                    onChange={e=>handleFile(e, setCoverFile, setCoverPreview)}
                   />
                 )}
               </div>
@@ -397,7 +378,9 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      {days.map(d=>(
+                        <option key={d} value={d}>{d}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -408,7 +391,9 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      {days.map(d=>(
+                        <option key={d} value={d}>{d}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -421,7 +406,9 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => <option key={t} value={t}>{t}</option>)}
+                      {times.map(t=>(
+                        <option key={t} value={t}>{t}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -432,7 +419,9 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => <option key={t} value={t}>{t}</option>)}
+                      {times.map(t=>(
+                        <option key={t} value={t}>{t}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -453,12 +442,13 @@ export default function AdminHeadShopsContent() {
 
               <div className="flex justify-end space-x-4 mt-6">
                 <Button type="submit">
-                  {mode === "edit" ? "Speichern" : "Hinzufügen"}
+                  {mode==="edit"?"Speichern":"Hinzufügen"}
                 </Button>
                 <Button variant="outline" onClick={closeModal}>
                   Abbrechen
                 </Button>
               </div>
+
             </form>
           </div>
         </div>
