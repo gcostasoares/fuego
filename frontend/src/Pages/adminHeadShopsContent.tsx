@@ -23,7 +23,7 @@ interface HeadShop {
   phone: string;
   email: string;
   address: string;
-  price: string;       // formatted "xx,yy"
+  price: string;       // "xx,yy"
   startDay: string;
   endDay: string;
   startTime: string;   // "HH:mm"
@@ -66,7 +66,7 @@ export default function AdminHeadShopsContent() {
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
   const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // 1) GET list of head shops
+  // 1) GET /HeadShops
   const fetchShops = async () => {
     try {
       const res = await apiClient.get<{ headShops:any[] }>("/HeadShops", {
@@ -75,18 +75,20 @@ export default function AdminHeadShopsContent() {
       });
       setShops(res.data.headShops.map(it => ({
         ...it,
-        price: Number(it.price).toFixed(2).replace(".",","),
-        startTime: it.startTime.slice(11,16),
-        endTime:   it.endTime.slice(11,16),
+        price:       Number(it.price).toFixed(2).replace(".",","),
+        startTime:   it.startTime.slice(11,16),
+        endTime:     it.endTime.slice(11,16),
       })));
     } catch (err) {
-      console.error("Error fetching head shops:", err);
+      console.error(err);
       alert("Fehler beim Laden der Head Shops");
     }
   };
-  useEffect(() => { fetchShops() }, []);
+  useEffect(() => {
+    fetchShops();
+  }, []);
 
-  // 2) open modal (add/edit)
+  // 2) open modal
   const openModal = (shop?:HeadShop) => {
     if (shop) {
       setSelected(shop);
@@ -94,12 +96,8 @@ export default function AdminHeadShopsContent() {
         ...shop,
         price: Number(shop.price).toFixed(2).replace(".",",")
       });
-      setImagePreview(
-        shop.imagePath ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}` : null
-      );
-      setCoverPreview(
-        shop.coverImagePath ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}` : null
-      );
+      setImagePreview(shop.imagePath   ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}`   : null);
+      setCoverPreview(shop.coverImagePath ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}` : null);
       setMode("edit");
     } else {
       setSelected(null);
@@ -114,13 +112,13 @@ export default function AdminHeadShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) form changes
-  const onChange = (e: React.ChangeEvent<any>) => {
+  // 3) handle text/select/checkbox
+  const onChange = (e:React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
     setForm(f => ({ ...f, [name]: type==="checkbox" ? checked : value }));
   };
 
-  // 4) file pick
+  // 4) handle file pick
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -131,16 +129,17 @@ export default function AdminHeadShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) create/update via fetch+FormData
+  // 5) POST or PUT via fetch+FormData
   const onSubmit = async (e:React.FormEvent) => {
     e.preventDefault();
 
     // normalize price
     let raw = form.price.replace(",",".").trim();
-    let num = parseFloat(raw); if (isNaN(num)) num=0;
+    let num = parseFloat(raw); if (isNaN(num)) num = 0;
     num = Math.round(num*100)/100;
     const priceFixed = num.toFixed(2);
 
+    // build FormData
     const fd = new FormData();
     fd.append("name",        form.name);
     fd.append("description", form.description);
@@ -180,7 +179,7 @@ export default function AdminHeadShopsContent() {
     }
   };
 
-  // 6) delete
+  // 6) DELETE
   const onDelete = async (id:string) => {
     if (!confirm("Löschen?")) return;
     try {
@@ -195,11 +194,13 @@ export default function AdminHeadShopsContent() {
 
   return (
     <div>
+      {/* header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Head Shops</h2>
         <Button onClick={()=>openModal()}>Neuer Head Shop</Button>
       </div>
 
+      {/* list */}
       <ul className="divide-y">
         {shops.map(s=>(
           <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
@@ -226,6 +227,7 @@ export default function AdminHeadShopsContent() {
         ))}
       </ul>
 
+      {/* modal */}
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -381,7 +383,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d=><option key={d} value={d}>{d}</option>)}
+                      {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div>
@@ -392,7 +394,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d=><option key={d} value={d}>{d}</option>)}
+                      {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                 </div>
@@ -405,7 +407,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t=><option key={t} value={t}>{t}</option>)}
+                      {times.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
@@ -416,7 +418,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t=><option key={t} value={t}>{t}</option>)}
+                      {times.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
@@ -436,7 +438,6 @@ export default function AdminHeadShopsContent() {
                 </label>
               </div>
 
-              {/* Actions */}
               <div className="flex justify-end space-x-4 mt-6">
                 <Button type="submit">
                   {mode==="edit" ? "Speichern" : "Hinzufügen"}
