@@ -21,11 +21,11 @@ interface HeadShop {
   phone: string;
   email: string;
   address: string;
-  price: string;            // formatted "xx,yy"
+  price: string;       // formatted "xx,yy"
   startDay: string;
   endDay: string;
-  startTime: string;        // "HH:mm"
-  endTime: string;          // "HH:mm"
+  startTime: string;   // "HH:mm"
+  endTime: string;     // "HH:mm"
   isVerified: boolean;
   imagePath: string | null;
   coverImagePath: string | null;
@@ -64,10 +64,10 @@ export default function AdminHeadShopsContent() {
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
   const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // 1) Fetch list of head shops
+  // Fetch head shops
   const fetchShops = async () => {
     try {
-      const res = await apiClient.get<{ headShops: any[] }>(
+      const res = await apiClient.get<{ headShops: HeadShop[] }>(
         "/HeadShops",
         {
           params: { pageNumber: 1, pageSize: 50 },
@@ -92,10 +92,10 @@ export default function AdminHeadShopsContent() {
     fetchShops();
   }, []);
 
-  // 2) Open modal for add/edit
+  // Open modal for add or edit
   const openModal = (shop?: HeadShop) => {
     if (shop) {
-      // extract HH:mm from ISO or plain
+      // normalize ISO timestamps down to "HH:mm"
       const normalize = (ts: string) =>
         ts.includes("T") ? ts.substring(11, 16) : ts;
 
@@ -127,16 +127,16 @@ export default function AdminHeadShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) Handle input changes
+  // Handle form inputs
   const onChange = (e: React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
-    setForm(f => ({ 
-      ...f, 
-      [name]: type === "checkbox" ? checked : value 
+    setForm(f => ({
+      ...f,
+      [name]: type === "checkbox" ? checked : value
     } as any));
   };
 
-  // 4) Handle file selection
+  // Handle file inputs
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -147,11 +147,10 @@ export default function AdminHeadShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) Submit create or update
+  // Submit add/update
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // normalize price to two decimals
+    // normalize price
     let raw = form.price.replace(",", ".").trim();
     let num = parseFloat(raw);
     if (isNaN(num)) num = 0;
@@ -198,7 +197,7 @@ export default function AdminHeadShopsContent() {
     }
   };
 
-  // 6) Delete
+  // Delete
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
@@ -213,13 +212,13 @@ export default function AdminHeadShopsContent() {
 
   return (
     <div>
-      {/* header */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Head Shops</h2>
         <Button onClick={() => openModal()}>Neuer Head Shop</Button>
       </div>
 
-      {/* list */}
+      {/* List */}
       <ul className="divide-y">
         {shops.map(s => (
           <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
@@ -246,7 +245,7 @@ export default function AdminHeadShopsContent() {
         ))}
       </ul>
 
-      {/* modal */}
+      {/* Modal */}
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -260,9 +259,7 @@ export default function AdminHeadShopsContent() {
             <button
               className="absolute top-2 right-2 text-gray-500 text-2xl"
               onClick={closeModal}
-            >
-              ×
-            </button>
+            >×</button>
 
             <h3 className="text-2xl font-bold mb-4">
               {mode === "edit" ? "Head Shop bearbeiten" : "Neuer Head Shop"}
@@ -275,7 +272,7 @@ export default function AdminHeadShopsContent() {
                 {imagePreview ? (
                   <div className="relative inline-block">
                     <img
-                      src={imagePreview!}
+                      src={imagePreview}
                       alt="Vorschau"
                       className="w-24 h-24 rounded-full object-cover border"
                     />
@@ -283,9 +280,7 @@ export default function AdminHeadShopsContent() {
                       type="button"
                       onClick={() => { setImageFile(null); setImagePreview(null); }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
-                    >
-                      ×
-                    </button>
+                    >×</button>
                   </div>
                 ) : (
                   <input
@@ -303,7 +298,7 @@ export default function AdminHeadShopsContent() {
                 {coverPreview ? (
                   <div className="relative inline-block">
                     <img
-                      src={coverPreview!}
+                      src={coverPreview}
                       alt="Vorschau"
                       className="w-24 h-24 object-cover rounded border"
                     />
@@ -311,9 +306,7 @@ export default function AdminHeadShopsContent() {
                       type="button"
                       onClick={() => { setCoverFile(null); setCoverPreview(null); }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
-                    >
-                      ×
-                    </button>
+                    >×</button>
                   </div>
                 ) : (
                   <input
