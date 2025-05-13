@@ -1,6 +1,7 @@
 // src/components/AdminCBDShopsContent.tsx
 
 import React, { useEffect, useState, useRef } from "react";
+import apiClient from "@/Apis/apiService";       // <-- your axios with baseURL = https://fuego-dev.onrender.com
 import { Button } from "@/components/ui/button";
 
 const days = [
@@ -56,29 +57,21 @@ export default function AdminCBDShopsContent() {
   const [open, setOpen]                 = useState(false);
   const modalRef                        = useRef<HTMLDivElement>(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE || ""; // e.g. "https://fuego-dev.onrender.com"
-  const ADMIN_KEY = localStorage.getItem("adminKey") || "";
+  // single headers object
+  const headers = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
-  // 1) Fetch list of shops
+  // 1) fetch list via axios
   const fetchShops = async () => {
     try {
-      const res = await fetch(
-        `${API_BASE}/CBDShops?pageNumber=1&pageSize=50`,
-        { headers: { "x-admin-key": ADMIN_KEY } }
-      );
-      const text = await res.text();
-      console.log("📥 /CBDShops raw response:", text);
-      if (!res.ok) {
-        alert(`Server-Fehler beim Laden:\n${text}`);
-        return;
-      }
-      if (!res.headers.get("content-type")?.includes("application/json")) {
-        alert(`Unerwarteter Antworttyp:\n${text}`);
-        return;
-      }
-      const json = JSON.parse(text);
+      const res = await apiClient.get<{
+        cbdShops: any[];
+        totalCount: number;
+      }>("/CBDShops", {
+        params: { pageNumber: 1, pageSize: 50 },
+        headers
+      });
       setShops(
-        json.cbdShops.map((it: any) => ({
+        res.data.cbdShops.map(it => ({
           ...it,
           price: Number(it.price).toFixed(2).replace(".", ","),
           startTime: it.startTime,
@@ -86,26 +79,22 @@ export default function AdminCBDShopsContent() {
         }))
       );
     } catch (err) {
-      console.error("Fetch error:", err);
-      alert("Netzwerkfehler beim Laden der CBD Shops");
+      console.error("Error fetching CBD shops:", err);
+      alert("Fehler beim Laden der CBD Shops");
     }
   };
   useEffect(fetchShops, []);
 
-  // 2) Open modal (add or edit)
+  // 2) open modal
   const openModal = (shop?: CBDShop) => {
     if (shop) {
       setSelected(shop);
       setForm(shop);
       setImagePreview(
-        shop.imagePath
-          ? `${API_BASE}/images/CBDShops/${shop.imagePath}`
-          : null
+        shop.imagePath ? `/images/CBDShops/${shop.imagePath}` : null
       );
       setCoverPreview(
-        shop.coverImagePath
-          ? `${API_BASE}/images/CBDShops/${shop.coverImagePath}`
-          : null
+        shop.coverImagePath ? `/images/CBDShops/${shop.coverImagePath}` : null
       );
       setMode("edit");
     } else {
@@ -121,16 +110,16 @@ export default function AdminCBDShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) Handle text/select/checkbox changes
+  // 3) form field changes
   const onChange = (e: React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
     setForm(f => ({
       ...f,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : value
     }));
   };
 
-  // 4) Handle file selection
+  // 4) file pick
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -141,10 +130,11 @@ export default function AdminCBDShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) Submit create or update
+  // 5) submit add/edit
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Normalize price
+
+    // normalize price
     let raw = form.price.replace(",", ".").trim();
     let num = parseFloat(raw);
     if (isNaN(num)) num = 0;
@@ -166,52 +156,28 @@ export default function AdminCBDShopsContent() {
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
 
-    // Debug: log FormData
-    for (let [k, v] of fd.entries()) {
-      console.log("FD entry:", k, v);
-    }
-
-    const url =
-      mode === "add"
-        ? `${API_BASE}/CBDShops`
-        : `${API_BASE}/CBDShops/${selected!.id}`;
-
     try {
-      const res = await fetch(url, {
-        method: mode === "add" ? "POST" : "PUT",
-        headers: { "x-admin-key": ADMIN_KEY },
-        body: fd,
-      });
-      const text = await res.text();
-      console.log("📥 submit response:", text);
-      if (!res.ok) {
-        alert(`Server-Fehler beim Speichern:\n${text}`);
-        return;
+      if (mode === "add") {
+        await apiClient.post("/CBDShops", fd, { headers });
+      } else {
+        await apiClient.put(`/CBDShops/${selected!.id}`, fd, { headers });
       }
       await fetchShops();
       closeModal();
     } catch (err) {
-      console.error("Submit error:", err);
-      alert("Netzwerkfehler beim Speichern");
+      console.error("Error saving CBD shop:", err);
+      alert("Speichern fehlgeschlagen");
     }
   };
 
-  // 6) Delete shop
+  // 6) delete
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
-      const res = await fetch(`${API_BASE}/CBDShops/${id}`, {
-        method: "DELETE",
-        headers: { "x-admin-key": ADMIN_KEY },
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        alert(`Server-Fehler beim Löschen:\n${txt}`);
-      } else {
-        fetchShops();
-      }
+      await apiClient.delete(`/CBDShops/${id}`, { headers });
+      await fetchShops();
     } catch {
-      alert("Netzwerkfehler beim Löschen");
+      alert("Löschen fehlgeschlagen");
     }
   };
 
@@ -231,7 +197,7 @@ export default function AdminCBDShopsContent() {
             <div className="flex items-center gap-3">
               {s.imagePath && (
                 <img
-                  src={`${API_BASE}/images/CBDShops/${s.imagePath}`}
+                  src={`/images/CBDShops/${s.imagePath}`}
                   alt={s.name}
                   className="w-10 h-10 rounded-full object-cover border-2"
                   loading="lazy"
@@ -244,10 +210,7 @@ export default function AdminCBDShopsContent() {
                 {s.name}
               </span>
             </div>
-            <Button
-              variant="destructive"
-              onClick={() => onDelete(s.id)}
-            >
+            <Button variant="destructive" onClick={() => onDelete(s.id)}>
               Löschen
             </Button>
           </li>
@@ -278,7 +241,9 @@ export default function AdminCBDShopsContent() {
             <form onSubmit={onSubmit} className="space-y-4">
               {/* Profilbild */}
               <div>
-                <label className="block text-sm mb-1">Profilbild</label>
+                <label className="block text-sm font-medium mb-1">
+                  Profilbild
+                </label>
                 {imagePreview ? (
                   <div className="relative inline-block">
                     <img
@@ -302,14 +267,18 @@ export default function AdminCBDShopsContent() {
                     name="image"
                     type="file"
                     accept="image/*"
-                    onChange={e => handleFile(e, setImageFile, setImagePreview)}
+                    onChange={e =>
+                      handleFile(e, setImageFile, setImagePreview)
+                    }
                   />
                 )}
               </div>
 
               {/* Coverbild */}
               <div>
-                <label className="block text-sm mb-1">Coverbild</label>
+                <label className="block text-sm font-medium mb-1">
+                  Coverbild
+                </label>
                 {coverPreview ? (
                   <div className="relative inline-block">
                     <img
@@ -333,14 +302,18 @@ export default function AdminCBDShopsContent() {
                     name="cover"
                     type="file"
                     accept="image/*"
-                    onChange={e => handleFile(e, setCoverFile, setCoverPreview)}
+                    onChange={e =>
+                      handleFile(e, setCoverFile, setCoverPreview)
+                    }
                   />
                 )}
               </div>
 
               {/* Name */}
               <div>
-                <label className="block text-sm mb-1">Name</label>
+                <label className="block text-sm font-medium mb-1">
+                  Name
+                </label>
                 <input
                   name="name"
                   value={form.name}
@@ -352,7 +325,9 @@ export default function AdminCBDShopsContent() {
 
               {/* Beschreibung */}
               <div>
-                <label className="block text-sm mb-1">Beschreibung</label>
+                <label className="block text-sm font-medium mb-1">
+                  Beschreibung
+                </label>
                 <textarea
                   name="description"
                   value={form.description}
@@ -365,7 +340,9 @@ export default function AdminCBDShopsContent() {
               {/* Telefon & E-Mail */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm mb-1">Telefon</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Telefon
+                  </label>
                   <input
                     name="phone"
                     value={form.phone}
@@ -374,7 +351,9 @@ export default function AdminCBDShopsContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm mb-1">E-Mail</label>
+                  <label className="block text-sm font-medium mb-1">
+                    E-Mail
+                  </label>
                   <input
                     name="email"
                     type="email"
@@ -387,7 +366,9 @@ export default function AdminCBDShopsContent() {
 
               {/* Adresse & Preis */}
               <div>
-                <label className="block text-sm mb-1">Adresse</label>
+                <label className="block text-sm font-medium mb-1">
+                  Adresse
+                </label>
                 <input
                   name="address"
                   value={form.address}
@@ -396,7 +377,9 @@ export default function AdminCBDShopsContent() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1">Preis (€)</label>
+                <label className="block text-sm font-medium mb-1">
+                  Preis (€)
+                </label>
                 <input
                   name="price"
                   value={form.price}
@@ -407,7 +390,8 @@ export default function AdminCBDShopsContent() {
 
               {/* Öffnungszeiten */}
               <fieldset className="border p-4 rounded">
-                <legend className="font-semibold mb-2">Öffnungszeiten</legend>
+                <legend className="font-semibold">Öffnungszeiten</legend>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm mb-1">Tag von</label>
