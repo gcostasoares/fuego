@@ -1,18 +1,16 @@
-// src/components/AdminHeadShopsContent.tsx
-
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
 
 const days = [
-  "Montag","Dienstag","Mittwoch",
-  "Donnerstag","Freitag","Samstag","Sonntag",
+  "Montag", "Dienstag", "Mittwoch",
+  "Donnerstag", "Freitag", "Samstag", "Sonntag",
 ];
 
 const times: string[] = [];
 for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 30) {
-    times.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+    times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
   }
 }
 
@@ -23,11 +21,11 @@ interface HeadShop {
   phone: string;
   email: string;
   address: string;
-  price: string;       // "xx,yy"
+  price: string;            // formatted "xx,yy"
   startDay: string;
   endDay: string;
-  startTime: string;   // "HH:mm"
-  endTime: string;     // "HH:mm"
+  startTime: string;        // "HH:mm"
+  endTime: string;          // "HH:mm"
   isVerified: boolean;
   imagePath: string | null;
   coverImagePath: string | null;
@@ -52,55 +50,68 @@ const defaultForm: Form = {
 };
 
 export default function AdminHeadShopsContent() {
-  const [shops, setShops]               = useState<HeadShop[]>([]);
-  const [selected, setSelected]         = useState<HeadShop|null>(null);
-  const [form, setForm]                 = useState<Form>(defaultForm);
-  const [imageFile, setImageFile]       = useState<File|null>(null);
-  const [coverFile, setCoverFile]       = useState<File|null>(null);
-  const [imagePreview, setImagePreview] = useState<string|null>(null);
-  const [coverPreview, setCoverPreview] = useState<string|null>(null);
-  const [mode, setMode]                 = useState<"add"|"edit">("add");
-  const [open, setOpen]                 = useState(false);
-  const modalRef                        = useRef<HTMLDivElement>(null);
+  const [shops, setShops] = useState<HeadShop[]>([]);
+  const [selected, setSelected] = useState<HeadShop | null>(null);
+  const [form, setForm] = useState<Form>(defaultForm);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [mode, setMode] = useState<"add" | "edit">("add");
+  const [open, setOpen] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
   const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // 1) fetch list
+  // 1) Fetch list of head shops
   const fetchShops = async () => {
     try {
-      const res = await apiClient.get<{ headShops:any[] }>("/HeadShops", {
-        params: { pageNumber:1, pageSize:50 },
-        headers: { "x-admin-key": ADMIN_KEY }
-      });
-      setShops(res.data.headShops.map(it => ({
-        ...it,
-        price:     Number(it.price).toFixed(2).replace(".",","),
-        startTime: it.startTime.slice(11,16),
-        endTime:   it.endTime.slice(11,16),
-      })));
+      const res = await apiClient.get<{ headShops: any[] }>(
+        "/HeadShops",
+        {
+          params: { pageNumber: 1, pageSize: 50 },
+          headers: { "x-admin-key": ADMIN_KEY },
+        }
+      );
+      setShops(
+        res.data.headShops.map(it => ({
+          ...it,
+          price: Number(it.price).toFixed(2).replace(".", ","),
+          startTime: it.startTime,
+          endTime: it.endTime,
+        }))
+      );
     } catch (err) {
-      console.error("Error fetching head shops:", err);
+      console.error(err);
       alert("Fehler beim Laden der Head Shops");
     }
   };
+
   useEffect(() => {
     fetchShops();
   }, []);
 
-  // 2) open modal
-  const openModal = (shop?:HeadShop) => {
+  // 2) Open modal for add/edit
+  const openModal = (shop?: HeadShop) => {
     if (shop) {
+      // extract HH:mm from ISO or plain
+      const normalize = (ts: string) =>
+        ts.includes("T") ? ts.substring(11, 16) : ts;
+
       setSelected(shop);
       setForm({
         ...shop,
-        price: Number(shop.price).toFixed(2).replace(".",",")
+        startTime: normalize(shop.startTime),
+        endTime: normalize(shop.endTime),
       });
       setImagePreview(
-        shop.imagePath   ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}`   : null
+        shop.imagePath ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}` : null
       );
       setCoverPreview(
-        shop.coverImagePath ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}` : null
+        shop.coverImagePath
+          ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}`
+          : null
       );
       setMode("edit");
     } else {
@@ -116,13 +127,16 @@ export default function AdminHeadShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) handle form field change
+  // 3) Handle input changes
   const onChange = (e: React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
-    setForm(f => ({ ...f, [name]: type==="checkbox" ? checked : value }));
+    setForm(f => ({ 
+      ...f, 
+      [name]: type === "checkbox" ? checked : value 
+    } as any));
   };
 
-  // 4) handle file pick
+  // 4) Handle file selection
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -133,25 +147,16 @@ export default function AdminHeadShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) submit create/update
+  // 5) Submit create or update
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // normalize price
-    let raw = form.price.replace(",",".").trim();
-    let num = parseFloat(raw); if (isNaN(num)) num = 0;
-    num = Math.round(num*100)/100;
+    // normalize price to two decimals
+    let raw = form.price.replace(",", ".").trim();
+    let num = parseFloat(raw);
+    if (isNaN(num)) num = 0;
+    num = Math.round(num * 100) / 100;
     const priceFixed = num.toFixed(2);
-
-    // normalize times to "HH:mm"
-    const normalizeHHmm = (t: string) => {
-      const parts = t.split(":");
-      return parts.length >= 2
-        ? `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}`
-        : t;
-    };
-    const start = normalizeHHmm(form.startTime);
-    const end   = normalizeHHmm(form.endTime);
 
     const fd = new FormData();
     fd.append("name",        form.name);
@@ -162,37 +167,38 @@ export default function AdminHeadShopsContent() {
     fd.append("price",       priceFixed);
     fd.append("startDay",    form.startDay);
     fd.append("endDay",      form.endDay);
-    fd.append("startTime",   start);
-    fd.append("endTime",     end);
+    fd.append("startTime",   `${form.startTime}:00`);
+    fd.append("endTime",     `${form.endTime}:00`);
     fd.append("isVerified",  String(form.isVerified));
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
 
-    const url = mode==="add"
-      ? `${IMG_BASE}/HeadShops`
-      : `${IMG_BASE}/HeadShops/${selected!.id}`;
+    const url =
+      mode === "add"
+        ? `${IMG_BASE}/HeadShops`
+        : `${IMG_BASE}/HeadShops/${selected!.id}`;
 
     try {
       const res = await fetch(url, {
-        method: mode==="add" ? "POST" : "PUT",
+        method: mode === "add" ? "POST" : "PUT",
         headers: { "x-admin-key": ADMIN_KEY },
         body: fd
       });
       const txt = await res.text();
       if (!res.ok) {
-        console.error("Server-Fehler:", txt);
+        console.error("Server responded:", txt);
         alert("Server-Fehler:\n" + txt);
         return;
       }
       await fetchShops();
       closeModal();
     } catch (err) {
-      console.error("Netzwerkfehler:", err);
+      console.error(err);
       alert("Netzwerkfehler beim Speichern");
     }
   };
 
-  // 6) delete
+  // 6) Delete
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
@@ -207,13 +213,13 @@ export default function AdminHeadShopsContent() {
 
   return (
     <div>
-      {/* Header */}
+      {/* header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Head Shops</h2>
         <Button onClick={() => openModal()}>Neuer Head Shop</Button>
       </div>
 
-      {/* List */}
+      {/* list */}
       <ul className="divide-y">
         {shops.map(s => (
           <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
@@ -240,7 +246,7 @@ export default function AdminHeadShopsContent() {
         ))}
       </ul>
 
-      {/* Modal */}
+      {/* modal */}
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -269,16 +275,13 @@ export default function AdminHeadShopsContent() {
                 {imagePreview ? (
                   <div className="relative inline-block">
                     <img
-                      src={imagePreview}
+                      src={imagePreview!}
                       alt="Vorschau"
                       className="w-24 h-24 rounded-full object-cover border"
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        setImageFile(null);
-                        setImagePreview(null);
-                      }}
+                      onClick={() => { setImageFile(null); setImagePreview(null); }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
                     >
                       ×
@@ -286,8 +289,9 @@ export default function AdminHeadShopsContent() {
                   </div>
                 ) : (
                   <input
+                    name="image"
                     type="file"
-                    accept="image/*"
+                    accept=".png,.jpg,.jpeg"
                     onChange={e => handleFile(e, setImageFile, setImagePreview)}
                   />
                 )}
@@ -299,16 +303,13 @@ export default function AdminHeadShopsContent() {
                 {coverPreview ? (
                   <div className="relative inline-block">
                     <img
-                      src={coverPreview}
+                      src={coverPreview!}
                       alt="Vorschau"
                       className="w-24 h-24 object-cover rounded border"
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        setCoverFile(null);
-                        setCoverPreview(null);
-                      }}
+                      onClick={() => { setCoverFile(null); setCoverPreview(null); }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
                     >
                       ×
@@ -316,8 +317,9 @@ export default function AdminHeadShopsContent() {
                   </div>
                 ) : (
                   <input
+                    name="cover"
                     type="file"
-                    accept="image/*"
+                    accept=".png,.jpg,.jpeg"
                     onChange={e => handleFile(e, setCoverFile, setCoverPreview)}
                   />
                 )}
@@ -386,7 +388,7 @@ export default function AdminHeadShopsContent() {
                   name="price"
                   value={form.price}
                   onChange={onChange}
-                  className="w-full	border p-2 rounded"
+                  className="w-full border p-2 rounded"
                 />
               </div>
 
@@ -451,13 +453,11 @@ export default function AdminHeadShopsContent() {
                     name="isVerified"
                     checked={form.isVerified}
                     onChange={onChange}
-                    className="mr-2"
                   />
                   Verifiziert
                 </label>
               </div>
 
-              {/* Actions */}
               <div className="flex justify-end space-x-4 mt-6">
                 <Button type="submit">
                   {mode === "edit" ? "Speichern" : "Hinzufügen"}
