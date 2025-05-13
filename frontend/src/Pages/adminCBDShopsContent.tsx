@@ -1,18 +1,18 @@
 // src/components/AdminCBDShopsContent.tsx
 
 import React, { useEffect, useState, useRef } from "react";
-import apiClient from "@/Apis/apiService";       // <-- your axios with baseURL = https://fuego-dev.onrender.com
+import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
 
 const days = [
-  "Montag", "Dienstag", "Mittwoch",
-  "Donnerstag", "Freitag", "Samstag", "Sonntag",
+  "Montag","Dienstag","Mittwoch",
+  "Donnerstag","Freitag","Samstag","Sonntag",
 ];
 
 const times: string[] = [];
 for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 30) {
-    times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    times.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
   }
 }
 
@@ -23,11 +23,11 @@ interface CBDShop {
   phone: string;
   email: string;
   address: string;
-  price: string;
+  price: string;            // formatted "xx,yy"
   startDay: string;
   endDay: string;
-  startTime: string;
-  endTime: string;
+  startTime: string;        // "HH:mm"
+  endTime: string;          // "HH:mm"
   isVerified: boolean;
   imagePath: string | null;
   coverImagePath: string | null;
@@ -47,54 +47,50 @@ const defaultForm: Form = {
 
 export default function AdminCBDShopsContent() {
   const [shops, setShops]               = useState<CBDShop[]>([]);
-  const [selected, setSelected]         = useState<CBDShop | null>(null);
+  const [selected, setSelected]         = useState<CBDShop|null>(null);
   const [form, setForm]                 = useState<Form>(defaultForm);
-  const [imageFile, setImageFile]       = useState<File | null>(null);
-  const [coverFile, setCoverFile]       = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [mode, setMode]                 = useState<"add" | "edit">("add");
+  const [imageFile, setImageFile]       = useState<File|null>(null);
+  const [coverFile, setCoverFile]       = useState<File|null>(null);
+  const [imagePreview, setImagePreview] = useState<string|null>(null);
+  const [coverPreview, setCoverPreview] = useState<string|null>(null);
+  const [mode, setMode]                 = useState<"add"|"edit">("add");
   const [open, setOpen]                 = useState(false);
   const modalRef                        = useRef<HTMLDivElement>(null);
 
-  // single headers object
-  const headers = { "x-admin-key": localStorage.getItem("adminKey") || "" };
+  // your API and image base
+  const headers = { "x-admin-key": localStorage.getItem("adminKey") ?? "" };
+  const IMG_BASE = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // 1) fetch list via axios
+  // fetch shops
   const fetchShops = async () => {
     try {
-      const res = await apiClient.get<{
-        cbdShops: any[];
-        totalCount: number;
-      }>("/CBDShops", {
-        params: { pageNumber: 1, pageSize: 50 },
-        headers
-      });
-      setShops(
-        res.data.cbdShops.map(it => ({
-          ...it,
-          price: Number(it.price).toFixed(2).replace(".", ","),
-          startTime: it.startTime,
-          endTime: it.endTime,
-        }))
+      const res = await apiClient.get<{ cbdShops:any[] }>(
+        "/CBDShops",
+        { params:{ pageNumber:1,pageSize:50 }, headers }
       );
+      setShops(res.data.cbdShops.map(it => ({
+        ...it,
+        price: Number(it.price).toFixed(2).replace(".",","),
+        startTime: it.startTime,
+        endTime: it.endTime,
+      })));
     } catch (err) {
-      console.error("Error fetching CBD shops:", err);
+      console.error(err);
       alert("Fehler beim Laden der CBD Shops");
     }
   };
   useEffect(fetchShops, []);
 
-  // 2) open modal
-  const openModal = (shop?: CBDShop) => {
+  // open modal
+  const openModal = (shop?:CBDShop) => {
     if (shop) {
       setSelected(shop);
       setForm(shop);
       setImagePreview(
-        shop.imagePath ? `/images/CBDShops/${shop.imagePath}` : null
+        shop.imagePath ? `${IMG_BASE}/images/CBDShops/${shop.imagePath}` : null
       );
       setCoverPreview(
-        shop.coverImagePath ? `/images/CBDShops/${shop.coverImagePath}` : null
+        shop.coverImagePath ? `${IMG_BASE}/images/CBDShops/${shop.coverImagePath}` : null
       );
       setMode("edit");
     } else {
@@ -110,68 +106,63 @@ export default function AdminCBDShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) form field changes
-  const onChange = (e: React.ChangeEvent<any>) => {
-    const { name, value, type, checked } = e.target;
-    setForm(f => ({
-      ...f,
-      [name]: type === "checkbox" ? checked : value
-    }));
+  // form change
+  const onChange = (e:React.ChangeEvent<any>) => {
+    const {name,value,type,checked} = e.target;
+    setForm(f => ({ ...f, [name]: type==="checkbox"?checked:value }));
   };
 
-  // 4) file pick
+  // file pick
   const handleFile = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setter: typeof setImageFile,
-    previewSetter: typeof setImagePreview
+    e:React.ChangeEvent<HTMLInputElement>,
+    setter:typeof setImageFile,
+    previewSetter:typeof setImagePreview
   ) => {
     const file = e.target.files?.[0] ?? null;
     setter(file);
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) submit add/edit
-  const onSubmit = async (e: React.FormEvent) => {
+  // submit
+  const onSubmit = async(e:React.FormEvent) => {
     e.preventDefault();
-
     // normalize price
-    let raw = form.price.replace(",", ".").trim();
-    let num = parseFloat(raw);
-    if (isNaN(num)) num = 0;
-    num = Math.round(num * 100) / 100;
+    let raw = form.price.replace(",",".").trim();
+    let num = parseFloat(raw); if (isNaN(num)) num=0;
+    num = Math.round(num*100)/100;
     const priceFixed = num.toFixed(2);
 
     const fd = new FormData();
-    fd.append("name",        form.name);
+    fd.append("name", form.name);
     fd.append("description", form.description);
-    fd.append("phone",       form.phone);
-    fd.append("email",       form.email);
-    fd.append("address",     form.address);
-    fd.append("price",       priceFixed);
-    fd.append("startDay",    form.startDay);
-    fd.append("endDay",      form.endDay);
-    fd.append("startTime",   `${form.startTime}:00`);
-    fd.append("endTime",     `${form.endTime}:00`);
-    fd.append("isVerified",  String(form.isVerified));
+    fd.append("phone", form.phone);
+    fd.append("email", form.email);
+    fd.append("address", form.address);
+    fd.append("price", priceFixed);
+    fd.append("startDay", form.startDay);
+    fd.append("endDay", form.endDay);
+    fd.append("startTime", `${form.startTime}:00`);
+    fd.append("endTime",   `${form.endTime}:00`);
+    fd.append("isVerified", String(form.isVerified));
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
 
     try {
-      if (mode === "add") {
+      if (mode==="add") {
         await apiClient.post("/CBDShops", fd, { headers });
       } else {
         await apiClient.put(`/CBDShops/${selected!.id}`, fd, { headers });
       }
       await fetchShops();
       closeModal();
-    } catch (err) {
-      console.error("Error saving CBD shop:", err);
+    } catch(err) {
+      console.error(err);
       alert("Speichern fehlgeschlagen");
     }
   };
 
-  // 6) delete
-  const onDelete = async (id: string) => {
+  // delete
+  const onDelete = async(id:string) => {
     if (!confirm("Löschen?")) return;
     try {
       await apiClient.delete(`/CBDShops/${id}`, { headers });
@@ -185,34 +176,26 @@ export default function AdminCBDShopsContent() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">CBD Shops</h2>
-        <Button onClick={() => openModal()}>Neuer CBD Shop</Button>
+        <Button onClick={()=>openModal()}>Neuer CBD Shop</Button>
       </div>
 
       <ul className="divide-y">
-        {shops.map(s => (
-          <li
-            key={s.id}
-            className="flex justify-between items-center p-2 hover:bg-gray-50"
-          >
+        {shops.map(s=>(
+          <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
             <div className="flex items-center gap-3">
               {s.imagePath && (
                 <img
-                  src={`/images/CBDShops/${s.imagePath}`}
+                  src={`${IMG_BASE}/images/CBDShops/${s.imagePath}`}
                   alt={s.name}
                   className="w-10 h-10 rounded-full object-cover border-2"
                   loading="lazy"
                 />
               )}
-              <span
-                className="cursor-pointer text-blue-600 hover:underline"
-                onClick={() => openModal(s)}
-              >
+              <span className="cursor-pointer text-blue-600 hover:underline" onClick={()=>openModal(s)}>
                 {s.name}
               </span>
             </div>
-            <Button variant="destructive" onClick={() => onDelete(s.id)}>
-              Löschen
-            </Button>
+            <Button variant="destructive" onClick={()=>onDelete(s.id)}>Löschen</Button>
           </li>
         ))}
       </ul>
@@ -224,8 +207,8 @@ export default function AdminCBDShopsContent() {
         >
           <div
             ref={modalRef}
-            onClick={e => e.stopPropagation()}
-            className="bg-white w-full max-w-lg p-6 rounded-lg"
+            onClick={e=>e.stopPropagation()}
+            className="bg-white w-full max-w-lg max-h-[80vh] overflow-auto rounded-lg p-6"
           >
             <button
               className="absolute top-2 right-2 text-gray-500 text-2xl"
@@ -233,9 +216,8 @@ export default function AdminCBDShopsContent() {
             >
               ×
             </button>
-
             <h3 className="text-2xl font-bold mb-4">
-              {mode === "edit" ? "CBD Shop bearbeiten" : "Neuer CBD Shop"}
+              {mode==="edit" ? "CBD Shop bearbeiten" : "Neuer CBD Shop"}
             </h3>
 
             <form onSubmit={onSubmit} className="space-y-4">
@@ -253,7 +235,7 @@ export default function AdminCBDShopsContent() {
                     />
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={()=>{
                         setImageFile(null);
                         setImagePreview(null);
                       }}
@@ -266,10 +248,8 @@ export default function AdminCBDShopsContent() {
                   <input
                     name="image"
                     type="file"
-                    accept="image/*"
-                    onChange={e =>
-                      handleFile(e, setImageFile, setImagePreview)
-                    }
+                    accept=".png,.jpg,.jpeg"
+                    onChange={e=>handleFile(e, setImageFile, setImagePreview)}
                   />
                 )}
               </div>
@@ -288,7 +268,7 @@ export default function AdminCBDShopsContent() {
                     />
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={()=>{
                         setCoverFile(null);
                         setCoverPreview(null);
                       }}
@@ -301,19 +281,15 @@ export default function AdminCBDShopsContent() {
                   <input
                     name="cover"
                     type="file"
-                    accept="image/*"
-                    onChange={e =>
-                      handleFile(e, setCoverFile, setCoverPreview)
-                    }
+                    accept=".png,.jpg,.jpeg"
+                    onChange={e=>handleFile(e, setCoverFile, setCoverPreview)}
                   />
                 )}
               </div>
 
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Name
-                </label>
+                <label className="block text-sm font-medium mb-1">Name</label>
                 <input
                   name="name"
                   value={form.name}
@@ -390,8 +366,7 @@ export default function AdminCBDShopsContent() {
 
               {/* Öffnungszeiten */}
               <fieldset className="border p-4 rounded">
-                <legend className="font-semibold">Öffnungszeiten</legend>
-
+                <legend className="font-semibold mb-2">Öffnungszeiten</legend>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm mb-1">Tag von</label>
