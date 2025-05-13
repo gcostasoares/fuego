@@ -20,10 +20,21 @@ function getPool() {
 
 const IMAGE_DIR = path.join(__dirname, "../../public/images/HeadShops");
 
-// ── List (pagination) ─────────────────────────────────────────────────────
+// Helper: ensure "HH:mm" → "HH:mm:00", leave "HH:mm:ss" untouched
+function normalizeTime(t) {
+  if (typeof t !== "string") return null;
+  // already includes seconds?
+  if (/^[0-2]\d:[0-5]\d:[0-5]\d$/.test(t)) return t;
+  // if it's "HH:mm"
+  if (/^[0-2]\d:[0-5]\d$/.test(t)) return t + ":00";
+  // otherwise invalid
+  return null;
+}
+
+// ── List with pagination ─────────────────────────────────────────────────────
 exports.getAllHeadShops = async (req, res) => {
   try {
-    const pool = getPool();
+    const pool       = getPool();
     const pageNumber = parseInt(req.query.pageNumber,10) || 1;
     const pageSize   = parseInt(req.query.pageSize,10)   || 10;
     const offset     = (pageNumber - 1) * pageSize;
@@ -36,11 +47,21 @@ exports.getAllHeadShops = async (req, res) => {
       .input("pageSize", sql.Int, pageSize)
       .query(`
         SELECT
-          Id, Name, Description, ProfileUrl, Phone, Email, Address,
-          Price, StartDay, EndDay,
+          Id              AS id,
+          Name            AS name,
+          Description     AS description,
+          ProfileUrl      AS profileUrl,
+          Phone           AS phone,
+          Email           AS email,
+          Address         AS address,
+          Price           AS price,
+          StartDay        AS startDay,
+          EndDay          AS endDay,
           CONVERT(varchar(5), StartTime, 108) AS startTime,
           CONVERT(varchar(5), EndTime,   108) AS endTime,
-          ImagePath, CoverImagePath, IsVerified
+          ImagePath       AS imagePath,
+          CoverImagePath  AS coverImagePath,
+          IsVerified      AS isVerified
         FROM tblHeadShops
         ORDER BY Name
         OFFSET @offset ROWS
@@ -52,12 +73,12 @@ exports.getAllHeadShops = async (req, res) => {
       totalCount:  countResult.recordset[0].total
     });
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching Head Shops:", err);
     res.status(500).json({ error:"Failed to fetch head shops", details: err.message });
   }
 };
 
-// ── Single item ────────────────────────────────────────────────────────────
+// ── Get single shop by ID ────────────────────────────────────────────────────
 exports.getHeadShopById = async (req, res) => {
   try {
     const pool = getPool();
@@ -67,11 +88,21 @@ exports.getHeadShopById = async (req, res) => {
       .input("Id", sql.UniqueIdentifier, id)
       .query(`
         SELECT
-          Id, Name, Description, ProfileUrl, Phone, Email, Address,
-          Price, StartDay, EndDay,
+          Id              AS id,
+          Name            AS name,
+          Description     AS description,
+          ProfileUrl      AS profileUrl,
+          Phone           AS phone,
+          Email           AS email,
+          Address         AS address,
+          Price           AS price,
+          StartDay        AS startDay,
+          EndDay          AS endDay,
           CONVERT(varchar(5), StartTime, 108) AS startTime,
           CONVERT(varchar(5), EndTime,   108) AS endTime,
-          ImagePath, CoverImagePath, IsVerified
+          ImagePath       AS imagePath,
+          CoverImagePath  AS coverImagePath,
+          IsVerified      AS isVerified
         FROM tblHeadShops
         WHERE Id = @Id
       `);
@@ -81,25 +112,34 @@ exports.getHeadShopById = async (req, res) => {
     }
     res.json(result.recordset[0]);
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching head shop:", err);
     res.status(500).json({ error:"Failed to fetch head shop", details: err.message });
   }
 };
 
-// ── Create ────────────────────────────────────────────────────────────────
+// ── Create a new Head Shop ──────────────────────────────────────────────────
 exports.createHeadShop = async (req, res) => {
   try {
     const pool = getPool();
     const id   = uuidv4().toUpperCase();
+
     const {
-      name, description, profileUrl, phone, email,
-      address, price, startDay, endDay,
+      name, description, profileUrl,
+      phone, email, address, price,
+      startDay, endDay,
       startTime, endTime, isVerified
     } = req.body;
 
+    // normalize the times
+    const st = normalizeTime(startTime);
+    const et = normalizeTime(endTime);
+    if (!st || !et) {
+      return res.status(400).json({ error:"Invalid time format" });
+    }
+
     const imagePath   = req.files?.image?.[0]?.filename   || null;
     const coverPath   = req.files?.cover?.[0]?.filename   || null;
-    const verifiedBit = (isVerified==="true") ? 1 : 0;
+    const verifiedBit = (isVerified === "true") ? 1 : 0;
     const priceVal    = parsePrice(price);
 
     await pool.request()
@@ -113,9 +153,8 @@ exports.createHeadShop = async (req, res) => {
       .input("Price",          sql.Decimal(18,2),    priceVal)
       .input("StartDay",       sql.NVarChar,         startDay)
       .input("EndDay",         sql.NVarChar,         endDay)
-      // ← using sql.Time here fixes the conversion
-      .input("StartTime",      sql.Time,             startTime)
-      .input("EndTime",        sql.Time,             endTime)
+      .input("StartTime",      sql.Time,             st)
+      .input("EndTime",        sql.Time,             et)
       .input("ImagePath",      sql.NVarChar,         imagePath)
       .input("CoverImagePath", sql.NVarChar,         coverPath)
       .input("IsVerified",     sql.Bit,              verifiedBit)
@@ -134,21 +173,30 @@ exports.createHeadShop = async (req, res) => {
 
     res.status(201).json({ success:true, headShopId:id });
   } catch (err) {
-    console.error(err);
+    console.error("Error creating head shop:", err);
     res.status(500).json({ error:"Server error", details: err.message });
   }
 };
 
-// ── Update ────────────────────────────────────────────────────────────────
+// ── Update an existing Head Shop ──────────────────────────────────────────
 exports.updateHeadShop = async (req, res) => {
   try {
     const pool = getPool();
     const { id } = req.params;
+
     const {
-      name, description, profileUrl, phone, email,
-      address, price, startDay, endDay,
+      name, description, profileUrl,
+      phone, email, address, price,
+      startDay, endDay,
       startTime, endTime, isVerified
     } = req.body;
+
+    // normalize times again
+    const st = normalizeTime(startTime);
+    const et = normalizeTime(endTime);
+    if (!st || !et) {
+      return res.status(400).json({ error:"Invalid time format" });
+    }
 
     // fetch old image filenames
     const oldRes = await pool.request()
@@ -163,6 +211,7 @@ exports.updateHeadShop = async (req, res) => {
     const newImage = req.files?.image?.[0]?.filename || null;
     const newCover = req.files?.cover?.[0]?.filename || null;
 
+    // delete old files if replaced
     const tryUnlink = fn => {
       if (!fn) return;
       const p = path.join(IMAGE_DIR, fn);
@@ -173,24 +222,23 @@ exports.updateHeadShop = async (req, res) => {
     if (newImage && oldImage) tryUnlink(oldImage);
     if (newCover && oldCover) tryUnlink(oldCover);
 
-    const verifiedBit = (isVerified==="true") ? 1 : 0;
+    const verifiedBit = (isVerified === "true") ? 1 : 0;
     const priceVal    = parsePrice(price);
 
     const reqQ = pool.request()
-      .input("Id",          sql.UniqueIdentifier, id)
-      .input("Name",        sql.NVarChar,         name)
-      .input("Description", sql.NVarChar,         description)
-      .input("ProfileUrl",  sql.NVarChar,         profileUrl)
-      .input("Phone",       sql.NVarChar,         phone)
-      .input("Email",       sql.NVarChar,         email)
-      .input("Address",     sql.NVarChar,         address)
-      .input("Price",       sql.Decimal(18,2),    priceVal)
-      .input("StartDay",    sql.NVarChar,         startDay)
-      .input("EndDay",      sql.NVarChar,         endDay)
-      // ← same fix here
-      .input("StartTime",   sql.Time,             startTime)
-      .input("EndTime",     sql.Time,             endTime)
-      .input("IsVerified",  sql.Bit,              verifiedBit);
+      .input("Id",          sql.UniqueIdentifier,  id)
+      .input("Name",        sql.NVarChar,          name)
+      .input("Description", sql.NVarChar,          description)
+      .input("ProfileUrl",  sql.NVarChar,          profileUrl)
+      .input("Phone",       sql.NVarChar,          phone)
+      .input("Email",       sql.NVarChar,          email)
+      .input("Address",     sql.NVarChar,          address)
+      .input("Price",       sql.Decimal(18,2),     priceVal)
+      .input("StartDay",    sql.NVarChar,          startDay)
+      .input("EndDay",      sql.NVarChar,          endDay)
+      .input("StartTime",   sql.Time,              st)
+      .input("EndTime",     sql.Time,              et)
+      .input("IsVerified",  sql.Bit,               verifiedBit);
 
     if (newImage) reqQ.input("ImagePath", sql.NVarChar, newImage);
     if (newCover) reqQ.input("CoverImagePath", sql.NVarChar, newCover);
@@ -217,7 +265,7 @@ exports.updateHeadShop = async (req, res) => {
 
     res.json({ message: "Head Shop updated successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Error updating head shop:", err);
     res.status(500).json({ error:"Failed to update head shop", details: err.message });
   }
 };
@@ -232,7 +280,7 @@ exports.deleteHeadShop = async (req, res) => {
       .query(`DELETE FROM tblHeadShops WHERE Id = @Id`);
     res.json({ message: "Head Shop deleted successfully" });
   } catch (err) {
-    console.error(err);
+    console.error("Error deleting head shop:", err);
     res.status(500).json({ error:"Failed to delete head shop", details: err.message });
   }
 };
