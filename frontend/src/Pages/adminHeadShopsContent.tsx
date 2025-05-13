@@ -1,3 +1,5 @@
+// src/components/AdminHeadShopsContent.tsx
+
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
@@ -64,38 +66,40 @@ export default function AdminHeadShopsContent() {
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
   const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // 1) GET list
+  // 1) GET list of head shops
   const fetchShops = async () => {
     try {
-      const res = await apiClient.get<{ headShops: any[] }>("/HeadShops", {
-        params: { pageNumber: 1, pageSize: 50 },
-        headers: { "x-admin-key": ADMIN_KEY },
+      const res = await apiClient.get<{ headShops:any[] }>("/HeadShops", {
+        params: { pageNumber:1, pageSize:50 },
+        headers: { "x-admin-key": ADMIN_KEY }
       });
       setShops(res.data.headShops.map(it => ({
         ...it,
-        price: Number(it.price).toFixed(2).replace(".", ","),
+        price: Number(it.price).toFixed(2).replace(".",","),
         startTime: it.startTime.slice(11,16),
-        endTime: it.endTime.slice(11,16),
+        endTime:   it.endTime.slice(11,16),
       })));
     } catch (err) {
       console.error("Error fetching head shops:", err);
       alert("Fehler beim Laden der Head Shops");
     }
   };
-  useEffect(() => {
-    fetchShops();
-  }, []);
+  useEffect(() => { fetchShops() }, []);
 
-  // 2) open modal
-  const openModal = (shop?: HeadShop) => {
+  // 2) open modal (add/edit)
+  const openModal = (shop?:HeadShop) => {
     if (shop) {
       setSelected(shop);
       setForm({
         ...shop,
-        price: Number(shop.price).toFixed(2).replace(".", ",")
+        price: Number(shop.price).toFixed(2).replace(".",",")
       });
-      setImagePreview(shop.imagePath ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}` : null);
-      setCoverPreview(shop.coverImagePath ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}` : null);
+      setImagePreview(
+        shop.imagePath ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}` : null
+      );
+      setCoverPreview(
+        shop.coverImagePath ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}` : null
+      );
       setMode("edit");
     } else {
       setSelected(null);
@@ -110,13 +114,13 @@ export default function AdminHeadShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) form field change
+  // 3) form changes
   const onChange = (e: React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
     setForm(f => ({ ...f, [name]: type==="checkbox" ? checked : value }));
   };
 
-  // 4) handle file
+  // 4) file pick
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -127,13 +131,14 @@ export default function AdminHeadShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) submit
-  const onSubmit = async (e: React.FormEvent) => {
+  // 5) create/update via fetch+FormData
+  const onSubmit = async (e:React.FormEvent) => {
     e.preventDefault();
+
     // normalize price
-    let raw = form.price.replace(",", ".").trim();
-    let num = parseFloat(raw); if (isNaN(num)) num = 0;
-    num = Math.round(num * 100) / 100;
+    let raw = form.price.replace(",",".").trim();
+    let num = parseFloat(raw); if (isNaN(num)) num=0;
+    num = Math.round(num*100)/100;
     const priceFixed = num.toFixed(2);
 
     const fd = new FormData();
@@ -163,20 +168,20 @@ export default function AdminHeadShopsContent() {
       });
       const txt = await res.text();
       if (!res.ok) {
-        console.error("Server error:", txt);
+        console.error("Server-Fehler:", txt);
         alert("Server-Fehler:\n" + txt);
         return;
       }
       await fetchShops();
       closeModal();
     } catch (err) {
-      console.error("Network error:", err);
+      console.error("Netzwerkfehler:", err);
       alert("Netzwerkfehler beim Speichern");
     }
   };
 
   // 6) delete
-  const onDelete = async (id: string) => {
+  const onDelete = async (id:string) => {
     if (!confirm("Löschen?")) return;
     try {
       await apiClient.delete(`/HeadShops/${id}`, {
@@ -196,7 +201,7 @@ export default function AdminHeadShopsContent() {
       </div>
 
       <ul className="divide-y">
-        {shops.map(s => (
+        {shops.map(s=>(
           <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
             <div className="flex items-center gap-3">
               {s.imagePath && (
@@ -237,7 +242,7 @@ export default function AdminHeadShopsContent() {
             >×</button>
 
             <h3 className="text-2xl font-bold mb-4">
-              {mode==="edit"?"Head Shop bearbeiten":"Neuer Head Shop"}
+              {mode==="edit" ? "Head Shop bearbeiten" : "Neuer Head Shop"}
             </h3>
 
             <form onSubmit={onSubmit} className="space-y-4">
@@ -355,7 +360,7 @@ export default function AdminHeadShopsContent() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Preis</label>
+                <label className="block text-sm font-medium mb-1">Preis (€)</label>
                 <input
                   name="price"
                   value={form.price}
@@ -376,7 +381,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      {days.map(d=><option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div>
@@ -387,7 +392,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      {days.map(d=><option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                 </div>
@@ -400,7 +405,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => <option key={t} value={t}>{t}</option>)}
+                      {times.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
@@ -411,7 +416,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => <option key={t} value={t}>{t}</option>)}
+                      {times.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
@@ -433,8 +438,12 @@ export default function AdminHeadShopsContent() {
 
               {/* Actions */}
               <div className="flex justify-end space-x-4 mt-6">
-                <Button type="submit">{mode==="edit"?"Speichern":"Hinzufügen"}</Button>
-                <Button variant="outline" onClick={closeModal}>Abbrechen</Button>
+                <Button type="submit">
+                  {mode==="edit" ? "Speichern" : "Hinzufügen"}
+                </Button>
+                <Button variant="outline" onClick={closeModal}>
+                  Abbrechen
+                </Button>
               </div>
             </form>
           </div>
@@ -443,4 +452,3 @@ export default function AdminHeadShopsContent() {
     </div>
   );
 }
-
