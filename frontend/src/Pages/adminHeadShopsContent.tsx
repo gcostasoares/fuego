@@ -154,8 +154,8 @@ export default function AdminHeadShopsContent() {
     fd.append("startDay",    form.startDay);
     fd.append("endDay",      form.endDay);
     // *** append :00 exactly once ***
-    fd.append("startTime",   `${form.startTime}:00`);
-    fd.append("endTime",     `${form.endTime}:00`);
+    fd.append("startTime", form.startTime);
+    fd.append("endTime",   form.endTime);
     fd.append("isVerified",  String(form.isVerified));
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
