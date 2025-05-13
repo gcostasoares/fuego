@@ -2116,7 +2116,7 @@ app.use(
 );
 app.use(
   "/images/CBDShops",
-  express.static(path.join(__dirname, "public/images/CBDShop"))
+  express.static(path.join(__dirname, "public/images/CBDShops"))
 );
 app.use(
   "/images/HeadShops",
