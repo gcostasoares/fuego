@@ -6,33 +6,40 @@ const ctrl    = require("./adminCBDShopsController");
 
 const router = express.Router();
 
+// Storage config
 const storage = multer.diskStorage({
-destination: (req, file, cb) =>
-cb(null, path.join(\_\_dirname, "../../public/images/CBDShops")),
-filename: (req, file, cb) =>
-cb(null, uuidv4() + path.extname(file.originalname))
+  destination: (req, file, cb) =>
+    cb(null, path.join(__dirname, "../../public/images/CBDShops")),
+  filename: (req, file, cb) =>
+    cb(null, uuidv4() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
-// ← Here’s the fix: specify maxCount for each field
+// Create
 router.post(
-"/",
-upload.fields(\[
-{ name: "image", maxCount: 1 },
-{ name: "cover", maxCount: 1 }
-]),
-ctrl.createCBDShop
+  "/",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "cover", maxCount: 1 }
+  ]),
+  ctrl.createCBDShop
 );
 
+// Update
 router.put(
-"/\:id",
-upload.fields(\[
-{ name: "image", maxCount: 1 },
-{ name: "cover", maxCount: 1 }
-]),
-ctrl.updateCBDShop
+  "/:id",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "cover", maxCount: 1 }
+  ]),
+  ctrl.updateCBDShop
 );
 
-router.get(   "/",    ctrl.getAllCBDShops);
-router.get(   "/\:id", ctrl.getCBDShopById);
-router.delete("/\:id", ctrl.deleteCBDShop);
+// Read list & single
+router.get("/",    ctrl.getAllCBDShops);
+router.get("/:id", ctrl.getCBDShopById);
+
+// Delete
+router.delete("/:id", ctrl.deleteCBDShop);
+
+module.exports = router;
