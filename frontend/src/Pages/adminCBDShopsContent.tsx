@@ -5,14 +5,14 @@ import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
 
 const days = [
-  "Montag","Dienstag","Mittwoch",
-  "Donnerstag","Freitag","Samstag","Sonntag",
+  "Montag", "Dienstag", "Mittwoch",
+  "Donnerstag", "Freitag", "Samstag", "Sonntag",
 ];
 
 const times: string[] = [];
 for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 30) {
-    times.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+    times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
   }
 }
 
@@ -47,19 +47,18 @@ const defaultForm: Form = {
 
 export default function AdminCBDShopsContent() {
   const [shops, setShops]               = useState<CBDShop[]>([]);
-  const [selected, setSelected]         = useState<CBDShop|null>(null);
+  const [selected, setSelected]         = useState<CBDShop | null>(null);
   const [form, setForm]                 = useState<Form>(defaultForm);
-  const [imageFile, setImageFile]       = useState<File|null>(null);
-  const [coverFile, setCoverFile]       = useState<File|null>(null);
-  const [imagePreview, setImagePreview] = useState<string|null>(null);
-  const [coverPreview, setCoverPreview] = useState<string|null>(null);
-  const [mode, setMode]                 = useState<"add"|"edit">("add");
+  const [imageFile, setImageFile]       = useState<File | null>(null);
+  const [coverFile, setCoverFile]       = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [mode, setMode]                 = useState<"add" | "edit">("add");
   const [open, setOpen]                 = useState(false);
   const modalRef                        = useRef<HTMLDivElement>(null);
 
   // Admin key header for authenticated calls
   const headers = { "x-admin-key": localStorage.getItem("adminKey") ?? "" };
-
   // Base URL for images, derived from axios baseURL
   const API_BASE = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
@@ -68,7 +67,7 @@ export default function AdminCBDShopsContent() {
     try {
       const res = await apiClient.get<{ cbdShops: any[] }>("/CBDShops", {
         params: { pageNumber: 1, pageSize: 50 },
-        headers
+        headers,
       });
       setShops(res.data.cbdShops.map(it => ({
         ...it,
@@ -112,12 +111,12 @@ export default function AdminCBDShopsContent() {
 
   // Handle text/select/checkbox changes
   const onChange = (
-    e: React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value, type, checked } = e.target as any;
     setForm(f => ({
       ...f,
-      [name]: type === "checkbox" ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
@@ -145,22 +144,28 @@ export default function AdminCBDShopsContent() {
     const priceFixed = num.toFixed(2);
 
     const fd = new FormData();
-    fd.append("name",        form.name);
+    fd.append("name", form.name);
     fd.append("description", form.description);
-    fd.append("phone",       form.phone);
-    fd.append("email",       form.email);
-    fd.append("address",     form.address);
-    fd.append("price",       priceFixed);
-    fd.append("startDay",    form.startDay);
-    fd.append("endDay",      form.endDay);
-    fd.append("startTime",   `${form.startTime}:00`);
-    fd.append("endTime",     `${form.endTime}:00`);
-    fd.append("isVerified",  String(form.isVerified));
-    if (imageFile) fd.append("image", imageFile);
-    if (coverFile) fd.append("cover", coverFile);
+    fd.append("phone", form.phone);
+    fd.append("email", form.email);
+    fd.append("address", form.address);
+    fd.append("price", priceFixed);
+    fd.append("startDay", form.startDay);
+    fd.append("endDay", form.endDay);
+    fd.append("startTime", `${form.startTime}:00`);
+    fd.append("endTime", `${form.endTime}:00`);
+    fd.append("isVerified", String(form.isVerified));
+    if (imageFile) fd.append("image", imageFile, imageFile.name);
+    if (coverFile) fd.append("cover", coverFile, coverFile.name);
+
+    // DEBUG: verify FormData contents
+    for (let [key, val] of fd.entries()) {
+      console.log("FD entry:", key, val);
+    }
 
     try {
-      const cfg = { headers }; // let axios set Content-Type with boundary
+      // only send admin-key header; let axios set multipart boundary
+      const cfg = { headers };
       if (mode === "add") {
         await apiClient.post("/CBDShops", fd, cfg);
       } else if (selected) {
@@ -266,6 +271,7 @@ export default function AdminCBDShopsContent() {
                   </div>
                 ) : (
                   <input
+                    name="image"
                     type="file"
                     accept=".png,.jpg,.jpeg"
                     onChange={e => handleFile(e, setImageFile, setImagePreview)}
@@ -296,6 +302,7 @@ export default function AdminCBDShopsContent() {
                   </div>
                 ) : (
                   <input
+                    name="cover"
                     type="file"
                     accept=".png,.jpg,.jpeg"
                     onChange={e => handleFile(e, setCoverFile, setCoverPreview)}
