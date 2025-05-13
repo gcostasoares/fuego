@@ -160,7 +160,7 @@ export default function AdminCBDShopsContent() {
     if (coverFile) fd.append("cover", coverFile);
 
     try {
-      const cfg = { headers: { ...headers, "Content-Type": "multipart/form-data" } };
+      const cfg = { headers };
       if (mode === "add") {
         await apiClient.post("/CBDShops", fd, cfg);
       } else if (selected) {
