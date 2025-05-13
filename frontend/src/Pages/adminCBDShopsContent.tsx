@@ -78,7 +78,9 @@ export default function AdminCBDShopsContent() {
       alert("Fehler beim Laden der CBD Shops");
     }
   };
-  useEffect(fetchShops, []);
+  useEffect(() => {
+    fetchShops();
+  }, []);
 
   // 2) Open modal
   const openModal = (shop?:CBDShop) => {
