@@ -17,10 +17,14 @@ dotenv.config();
 app.set("case sensitive routing", true);
 app.use(cors());
 app.use(express.json());
-app.use("/images", (req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  next();
-}, express.static("public/images"));
+app.use(
+  "/images",
+  (req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    next();
+  },
+  express.static(path.join(__dirname, "public/images"))
+);
 app.use(
   cors({
     origin: [
@@ -2181,6 +2185,18 @@ function authenticateAdmin(req, res, next) {
 
 app.get('/', (req, res) => {
   res.send('API ist live und lauscht!');
+});
+
+app.get("/debug/list-cbd", (req, res) => {
+  const fs = require("fs");
+  const dir = path.join(__dirname, "public/images/CBDShops");
+  fs.readdir(dir, (err, files) => {
+    if (err) {
+      console.error("Error reading CBDShops directory:", err);
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(files);
+  });
 });
 
 const adminProductsRoutes       = require('./admin/Products/adminProductsRoutes');
