@@ -66,7 +66,7 @@ export default function AdminHeadShopsContent() {
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
   const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // 1) GET /HeadShops
+  // 1) GET list
   const fetchShops = async () => {
     try {
       const res = await apiClient.get<{ headShops:any[] }>("/HeadShops", {
@@ -75,9 +75,9 @@ export default function AdminHeadShopsContent() {
       });
       setShops(res.data.headShops.map(it => ({
         ...it,
-        price:       Number(it.price).toFixed(2).replace(".",","),
-        startTime:   it.startTime.slice(11,16),
-        endTime:     it.endTime.slice(11,16),
+        price:     Number(it.price).toFixed(2).replace(".",","),
+        startTime: it.startTime.slice(11,16),
+        endTime:   it.endTime.slice(11,16),
       })));
     } catch (err) {
       console.error(err);
@@ -96,8 +96,12 @@ export default function AdminHeadShopsContent() {
         ...shop,
         price: Number(shop.price).toFixed(2).replace(".",",")
       });
-      setImagePreview(shop.imagePath   ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}`   : null);
-      setCoverPreview(shop.coverImagePath ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}` : null);
+      setImagePreview(
+        shop.imagePath   ? `${IMG_BASE}/images/HeadShops/${shop.imagePath}`   : null
+      );
+      setCoverPreview(
+        shop.coverImagePath ? `${IMG_BASE}/images/HeadShops/${shop.coverImagePath}` : null
+      );
       setMode("edit");
     } else {
       setSelected(null);
@@ -112,13 +116,13 @@ export default function AdminHeadShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) handle text/select/checkbox
+  // 3) field change
   const onChange = (e:React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
     setForm(f => ({ ...f, [name]: type==="checkbox" ? checked : value }));
   };
 
-  // 4) handle file pick
+  // 4) file pick
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -129,17 +133,17 @@ export default function AdminHeadShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) POST or PUT via fetch+FormData
+  // 5) POST / PUT via fetch + FormData
   const onSubmit = async (e:React.FormEvent) => {
     e.preventDefault();
 
-    // normalize price
+    // normalize price: "xx,yy" -> "xx.yy"
     let raw = form.price.replace(",",".").trim();
-    let num = parseFloat(raw); if (isNaN(num)) num = 0;
+    let num = parseFloat(raw);
+    if (isNaN(num)) num = 0;
     num = Math.round(num*100)/100;
     const priceFixed = num.toFixed(2);
 
-    // build FormData
     const fd = new FormData();
     fd.append("name",        form.name);
     fd.append("description", form.description);
@@ -149,6 +153,7 @@ export default function AdminHeadShopsContent() {
     fd.append("price",       priceFixed);
     fd.append("startDay",    form.startDay);
     fd.append("endDay",      form.endDay);
+    // *** append :00 exactly once ***
     fd.append("startTime",   `${form.startTime}:00`);
     fd.append("endTime",     `${form.endTime}:00`);
     fd.append("isVerified",  String(form.isVerified));
@@ -216,9 +221,7 @@ export default function AdminHeadShopsContent() {
               <span
                 className="cursor-pointer text-blue-600 hover:underline"
                 onClick={()=>openModal(s)}
-              >
-                {s.name}
-              </span>
+              >{s.name}</span>
             </div>
             <Button variant="destructive" onClick={()=>onDelete(s.id)}>
               Löschen
@@ -238,6 +241,7 @@ export default function AdminHeadShopsContent() {
             onClick={e=>e.stopPropagation()}
             className="bg-white w-full max-w-lg max-h-[80vh] overflow-auto rounded-lg p-6"
           >
+
             <button
               className="absolute top-2 right-2 text-gray-500 text-2xl"
               onClick={closeModal}
@@ -383,7 +387,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      {days.map(d=><option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div>
@@ -394,7 +398,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
+                      {days.map(d=><option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                 </div>
@@ -407,7 +411,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => <option key={t} value={t}>{t}</option>)}
+                      {times.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
@@ -418,7 +422,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => <option key={t} value={t}>{t}</option>)}
+                      {times.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
