@@ -4,14 +4,14 @@ import React, { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 
 const days = [
-  "Montag","Dienstag","Mittwoch",
-  "Donnerstag","Freitag","Samstag","Sonntag",
+  "Montag", "Dienstag", "Mittwoch",
+  "Donnerstag", "Freitag", "Samstag", "Sonntag",
 ];
 
 const times: string[] = [];
 for (let h = 0; h < 24; h++) {
   for (let m = 0; m < 60; m += 30) {
-    times.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+    times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
   }
 }
 
@@ -46,21 +46,20 @@ const defaultForm: Form = {
 
 export default function AdminCBDShopsContent() {
   const [shops, setShops]               = useState<CBDShop[]>([]);
-  const [selected, setSelected]         = useState<CBDShop|null>(null);
+  const [selected, setSelected]         = useState<CBDShop | null>(null);
   const [form, setForm]                 = useState<Form>(defaultForm);
-  const [imageFile, setImageFile]       = useState<File|null>(null);
-  const [coverFile, setCoverFile]       = useState<File|null>(null);
-  const [imagePreview, setImagePreview] = useState<string|null>(null);
-  const [coverPreview, setCoverPreview] = useState<string|null>(null);
-  const [mode, setMode]                 = useState<"add"|"edit">("add");
+  const [imageFile, setImageFile]       = useState<File | null>(null);
+  const [coverFile, setCoverFile]       = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [mode, setMode]                 = useState<"add" | "edit">("add");
   const [open, setOpen]                 = useState(false);
   const modalRef                        = useRef<HTMLDivElement>(null);
 
-  // Your API origin (e.g. https://fuego-dev.onrender.com)
-  const API_BASE = import.meta.env.VITE_API_BASE || "";
+  const API_BASE = import.meta.env.VITE_API_BASE || "";        // e.g. https://fuego-dev.onrender.com
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
 
-  // 1) Fetch shops
+  // 1) fetch
   const fetchShops = async () => {
     try {
       const res = await fetch(`${API_BASE}/CBDShops?pageNumber=1&pageSize=50`, {
@@ -73,14 +72,13 @@ export default function AdminCBDShopsContent() {
         startTime: it.startTime,
         endTime: it.endTime
       })));
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Fehler beim Laden der CBD Shops");
     }
   };
   useEffect(fetchShops, []);
 
-  // 2) Open modal
+  // 2) modal
   const openModal = (shop?: CBDShop) => {
     if (shop) {
       setSelected(shop);
@@ -101,13 +99,13 @@ export default function AdminCBDShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) Handle form fields
+  // 3) text/change
   const onChange = (e: React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
     setForm(f => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   };
 
-  // 4) Handle file pick
+  // 4) file pick
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -118,18 +116,15 @@ export default function AdminCBDShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) Submit add/edit via fetch with robust JSON handling
+  // 5) submit (no JSON.parse, just ok check)
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     // normalize price
     let raw = form.price.replace(",", ".").trim();
-    let num = parseFloat(raw);
-    if (isNaN(num)) num = 0;
-    num = Math.round(num * 100)/100;
+    let num = parseFloat(raw) || 0;
+    num = Math.round(num * 100) / 100;
     const priceFixed = num.toFixed(2);
 
-    // build FormData
     const fd = new FormData();
     fd.append("name", form.name);
     fd.append("description", form.description);
@@ -145,9 +140,6 @@ export default function AdminCBDShopsContent() {
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
 
-    // debug FormData
-    for (let [k,v] of fd.entries()) console.log("FD:", k, v);
-
     const url = mode === "add"
       ? `${API_BASE}/CBDShops`
       : `${API_BASE}/CBDShops/${selected!.id}`;
@@ -156,47 +148,22 @@ export default function AdminCBDShopsContent() {
       const res = await fetch(url, {
         method: mode === "add" ? "POST" : "PUT",
         headers: { "x-admin-key": ADMIN_KEY },
-        body: fd,
+        body: fd
       });
-
-      // read raw text
-      const text = await res.text();
-      console.log("📥 raw server response:", text);
-
-      // check content-type
-      const ct = res.headers.get("content-type") || "";
-      if (!ct.includes("application/json")) {
-        alert(`Unerwartete Server-Antwort:\n${text}`);
-        return;
-      }
-
-      // parse JSON
-      let data: any;
-      try {
-        data = JSON.parse(text);
-      } catch (err) {
-        console.error("JSON parse error:", err);
-        alert("Fehler beim Verarbeiten der Server-Antwort. Details in der Konsole.");
-        return;
-      }
-
-      // handle HTTP errors
       if (!res.ok) {
-        const msg = data.error || JSON.stringify(data);
-        alert(`Server-Fehler: ${msg}`);
+        const text = await res.text();
+        alert(`Server-Fehler:\n${text}`);
         return;
       }
-
-      console.log("✅ parsed JSON:", data);
+      // success: refresh
       await fetchShops();
       closeModal();
-    } catch (err) {
-      console.error("Netzwerk- oder Fetch-Fehler:", err);
+    } catch {
       alert("Speichern fehlgeschlagen");
     }
   };
 
-  // 6) Delete
+  // 6) delete
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     await fetch(`${API_BASE}/CBDShops/${id}`, {
@@ -212,7 +179,6 @@ export default function AdminCBDShopsContent() {
         <h2 className="text-2xl font-bold">CBD Shops</h2>
         <Button onClick={() => openModal()}>Neuer CBD Shop</Button>
       </div>
-
       <ul className="divide-y">
         {shops.map(s => (
           <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
@@ -225,10 +191,7 @@ export default function AdminCBDShopsContent() {
                   loading="lazy"
                 />
               )}
-              <span
-                className="cursor-pointer text-blue-600 hover:underline"
-                onClick={() => openModal(s)}
-              >
+              <span className="cursor-pointer text-blue-600" onClick={() => openModal(s)}>
                 {s.name}
               </span>
             </div>
@@ -252,100 +215,48 @@ export default function AdminCBDShopsContent() {
                 <label className="block text-sm mb-1">Profilbild</label>
                 {imagePreview ? (
                   <div className="relative inline-block">
-                    <img src={imagePreview} alt="Vorschau" className="w-24 h-24 rounded-full object-cover border" />
+                    <img src={imagePreview!} alt="Vorschau" className="w-24 h-24 rounded-full object-cover border" />
                     <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); }} className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full">×</button>
                   </div>
                 ) : (
                   <input name="image" type="file" accept="image/*" onChange={e => handleFile(e, setImageFile, setImagePreview)} />
                 )}
               </div>
-
               {/* Coverbild */}
               <div>
                 <label className="block text-sm mb-1">Coverbild</label>
                 {coverPreview ? (
                   <div className="relative inline-block">
-                    <img src={coverPreview} alt="Vorschau" className="w-24 h-24 object-cover rounded border" />
+                    <img src={coverPreview!} alt="Vorschau" className="w-24 h-24 object-cover rounded border" />
                     <button type="button" onClick={() => { setCoverFile(null); setCoverPreview(null); }} className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full">×</button>
                   </div>
                 ) : (
                   <input name="cover" type="file" accept="image/*" onChange={e => handleFile(e, setCoverFile, setCoverPreview)} />
                 )}
               </div>
-
-              {/* Weitere Felder: Name, Beschreibung, Telefon, E-Mail, Adresse, Preis */}
-              <div>
-                <label className="block text-sm mb-1">Name</label>
-                <input name="name" value={form.name} onChange={onChange} required className="w-full border p-2 rounded" />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Beschreibung</label>
-                <textarea name="description" value={form.description} onChange={onChange} rows={4} className="w-full border p-2 rounded" />
-              </div>
+              {/* Name, Beschreibung, Telefon, E-Mail, Adresse, Preis */}
+              <div><label>Name</label><input name="name" value={form.name} onChange={onChange} required className="w-full border p-2 rounded" /></div>
+              <div><label>Beschreibung</label><textarea name="description" value={form.description} onChange={onChange} rows={3} className="w-full border p-2 rounded" /></div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm mb-1">Telefon</label>
-                  <input name="phone" value={form.phone} onChange={onChange} className="w-full border p-2 rounded" />
-                </div>
-                <div>
-                  <label className="block text-sm mb-1">E-Mail</label>
-                  <input name="email" type="email" value={form.email} onChange={onChange} className="w-full border p-2 rounded" />
-                </div>
+                <div><label>Telefon</label><input name="phone" value={form.phone} onChange={onChange} className="w-full border p-2 rounded" /></div>
+                <div><label>E-Mail</label><input name="email" type="email" value={form.email} onChange={onChange} className="w-full border p-2 rounded" /></div>
               </div>
-              <div>
-                <label className="block text-sm mb-1">Adresse</label>
-                <input name="address" value={form.address} onChange={onChange} className="w-full border p-2 rounded" />
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Preis (€)</label>
-                <input name="price" value={form.price} onChange={onChange} className="w-full border p-2 rounded" />
-              </div>
-
+              <div><label>Adresse</label><input name="address" value={form.address} onChange={onChange} className="w-full border p-2 rounded" /></div>
+              <div><label>Preis (€)</label><input name="price" value={form.price} onChange={onChange} className="w-full border p-2 rounded" /></div>
               {/* Öffnungszeiten */}
               <fieldset className="border p-4 rounded">
-                <legend className="font-semibold mb-2">Öffnungszeiten</legend>
+                <legend>Öffnungszeiten</legend>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block mb-1 text-sm">Tag von</label>
-                    <select name="startDay" value={form.startDay} onChange={onChange} className="w-full border p-2 rounded">
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block mb-1 text-sm">Tag bis</label>
-                    <select name="endDay" value={form.endDay} onChange={onChange} className="w-full border p-2 rounded">
-                      {days.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
+                  <div><label>Tag von</label><select name="startDay" value={form.startDay} onChange={onChange} className="w-full border p-2 rounded">{days.map(d=> <option key={d} value={d}>{d}</option>)}</select></div>
+                  <div><label>Tag bis</label><select name="endDay" value={form.endDay} onChange={onChange} className="w-full border p-2 rounded">{days.map(d=> <option key={d} value={d}>{d}</option>)}</select></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div>
-                    <label className="block mb-1 text-sm">Zeit von</label>
-                    <select name="startTime" value={form.startTime} onChange={onChange} className="w-full border p-2 rounded">
-                      {times.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block mb-1 text-sm">Zeit bis</label>
-                    <select name="endTime" value={form.endTime} onChange={onChange} className="w-full border p-2 rounded">
-                      {times.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
+                  <div><label>Zeit von</label><select name="startTime" value={form.startTime} onChange={onChange} className="w-full border p-2 rounded">{times.map(t=> <option key={t} value={t}>{t}</option>)}</select></div>
+                  <div><label>Zeit bis</label><select name="endTime" value={form.endTime} onChange={onChange} className="w-full border p-2 rounded">{times.map(t=> <option key={t} value={t}>{t}</option>)}</select></div>
                 </div>
               </fieldset>
-
-              {/* Verifiziert */}
-              <div>
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" name="isVerified" checked={form.isVerified} onChange={onChange} />
-                  Verifiziert
-                </label>
-              </div>
-
-              <div className="flex justify-end space-x-4 mt-6">
-                <Button type="submit">{mode === "edit" ? "Speichern" : "Hinzufügen"}</Button>
-                <Button variant="outline" onClick={closeModal}>Abbrechen</Button>
-              </div>
+              <div><label><input type="checkbox" name="isVerified" checked={form.isVerified} onChange={onChange} /> Verifiziert</label></div>
+              <div className="flex justify-end space-x-4"><Button type="submit">{mode==="edit"?"Speichern":"Hinzufügen"}</Button><Button variant="outline" onClick={closeModal}>Abbrechen</Button></div>
             </form>
           </div>
         </div>
