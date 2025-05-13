@@ -1,9 +1,11 @@
-const sql       = require("mssql");
-const fs        = require("fs");
-const path      = require("path");
+// backend/controllers/adminHeadShopsController.js
+
+const sql        = require("mssql");
+const fs         = require("fs");
+const path       = require("path");
 const { v4: uuidv4 } = require("uuid");
 
-// Normalize user-entered price to two decimals
+// Normalize user-entered price to a two-decimal number
 function parsePrice(input) {
   const str = (input ?? "").toString().trim().replace(/,/g, ".");
   const num = parseFloat(str);
@@ -16,10 +18,10 @@ function getPool() {
   return global.pool;
 }
 
-// two levels up: backend/public/images/HeadShops
+// Two levels up from here: backend/public/images/HeadShops
 const IMAGE_DIR = path.join(__dirname, "../../public/images/HeadShops");
 
-// ── List (pagination) ─────────────────────────────────────────────────────
+// ── List with pagination ─────────────────────────────────────────────────
 exports.getAllHeadShops = async (req, res) => {
   try {
     const pool       = getPool();
@@ -66,7 +68,7 @@ exports.getAllHeadShops = async (req, res) => {
   }
 };
 
-// ── Single item ────────────────────────────────────────────────────────────
+// ── Get single shop by ID ────────────────────────────────────────────────
 exports.getHeadShopById = async (req, res) => {
   try {
     const pool = getPool();
@@ -105,15 +107,24 @@ exports.getHeadShopById = async (req, res) => {
   }
 };
 
-// ── Create ────────────────────────────────────────────────────────────────
+// ── Create a new Head Shop ───────────────────────────────────────────────
 exports.createHeadShop = async (req, res) => {
   try {
     const pool = getPool();
     const id   = uuidv4().toUpperCase();
     const {
-      name, description, profileUrl, phone, email,
-      address, price, startDay, endDay,
-      startTime, endTime, isVerified
+      name,
+      description,
+      profileUrl,
+      phone,
+      email,
+      address,
+      price,
+      startDay,
+      endDay,
+      startTime,
+      endTime,
+      isVerified
     } = req.body;
 
     const imagePath   = req.files?.image?.[0]?.filename   || null;
@@ -157,18 +168,27 @@ exports.createHeadShop = async (req, res) => {
   }
 };
 
-// ── Update ───────────────────────────────────────────────────────────────
+// ── Update an existing Head Shop ─────────────────────────────────────────
 exports.updateHeadShop = async (req, res) => {
   try {
     const pool = getPool();
     const { id } = req.params;
     const {
-      name, description, profileUrl, phone, email,
-      address, price, startDay, endDay,
-      startTime, endTime, isVerified
+      name,
+      description,
+      profileUrl,
+      phone,
+      email,
+      address,
+      price,
+      startDay,
+      endDay,
+      startTime,
+      endTime,
+      isVerified
     } = req.body;
 
-    // fetch old files
+    // Fetch old image filenames
     const oldRes = await pool.request()
       .input("Id", sql.UniqueIdentifier, id)
       .query(`
@@ -181,6 +201,7 @@ exports.updateHeadShop = async (req, res) => {
     const newImage = req.files?.image?.[0]?.filename || null;
     const newCover = req.files?.cover?.[0]?.filename || null;
 
+    // Helper to unlink old files
     const tryUnlink = fn => {
       if (!fn) return;
       const p = path.join(IMAGE_DIR, fn);
@@ -239,7 +260,7 @@ exports.updateHeadShop = async (req, res) => {
   }
 };
 
-// ── Delete ───────────────────────────────────────────────────────────────
+// ── Delete ────────────────────────────────────────────────────────────────
 exports.deleteHeadShop = async (req, res) => {
   try {
     const pool = getPool();
