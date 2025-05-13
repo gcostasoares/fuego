@@ -16,11 +16,11 @@ function getPool() {
   return global.pool;
 }
 
-// Two levels up from here: backend/public/images/CBDShops
-const IMAGE_DIR = path.join(__dirname, "../../public/images/CBDShops");
+// Two levels up from here: backend/public/images/HeadShops
+const IMAGE_DIR = path.join(__dirname, "../../public/images/HeadShops");
 
-// ── List with pagination ─────────────────────────────────────────────────
-exports.getAllCBDShops = async (req, res) => {
+// ── List with pagination ────────────────────────────────────────────────
+exports.getAllHeadShops = async (req, res) => {
   try {
     const pool       = getPool();
     const pageNumber = parseInt(req.query.pageNumber, 10) || 1;
@@ -28,7 +28,7 @@ exports.getAllCBDShops = async (req, res) => {
     const offset     = (pageNumber - 1) * pageSize;
 
     const countResult = await pool.request()
-      .query(`SELECT COUNT(*) AS total FROM tblCBDShops`);
+      .query(`SELECT COUNT(*) AS total FROM tblHeadShops`);
 
     const dataResult = await pool.request()
       .input("offset",   sql.Int, offset)
@@ -49,24 +49,24 @@ exports.getAllCBDShops = async (req, res) => {
           ImagePath       AS imagePath,
           CoverImagePath  AS coverImagePath,
           IsVerified      AS isVerified
-        FROM tblCBDShops
+        FROM tblHeadShops
         ORDER BY Name
         OFFSET @offset ROWS
         FETCH NEXT @pageSize ROWS ONLY
       `);
 
     res.json({
-      cbdShops:   dataResult.recordset,
-      totalCount: countResult.recordset[0].total
+      headShops:   dataResult.recordset,
+      totalCount:  countResult.recordset[0].total
     });
   } catch (err) {
-    console.error("Error fetching CBD shops:", err);
-    res.status(500).json({ error: "Failed to fetch CBD shops", details: err.message });
+    console.error("Error fetching HeadShops:", err);
+    res.status(500).json({ error: "Failed to fetch HeadShops", details: err.message });
   }
 };
 
-// ── Get single shop by ID ────────────────────────────────────────────────
-exports.getCBDShopById = async (req, res) => {
+// ── Get single shop by ID ───────────────────────────────────────────────
+exports.getHeadShopById = async (req, res) => {
   try {
     const pool = getPool();
     const { id } = req.params;
@@ -89,22 +89,22 @@ exports.getCBDShopById = async (req, res) => {
           ImagePath       AS imagePath,
           CoverImagePath  AS coverImagePath,
           IsVerified      AS isVerified
-        FROM tblCBDShops
+        FROM tblHeadShops
         WHERE Id = @Id
       `);
 
     if (!result.recordset.length) {
-      return res.status(404).json({ error: "CBD Shop not found" });
+      return res.status(404).json({ error: "HeadShop not found" });
     }
     res.json(result.recordset[0]);
   } catch (err) {
-    console.error("Error fetching CBD shop:", err);
-    res.status(500).json({ error: "Failed to fetch CBD shop", details: err.message });
+    console.error("Error fetching HeadShop:", err);
+    res.status(500).json({ error: "Failed to fetch HeadShop", details: err.message });
   }
 };
 
-// ── Create a new CBD shop ────────────────────────────────────────────────
-exports.createCBDShop = async (req, res) => {
+// ── Create a new HeadShop ───────────────────────────────────────────────
+exports.createHeadShop = async (req, res) => {
   try {
     const pool = getPool();
     const id   = uuidv4().toUpperCase();
@@ -137,7 +137,7 @@ exports.createCBDShop = async (req, res) => {
       .input("Lat",            sql.Decimal(9,6),     0)
       .input("Long",           sql.Decimal(9,6),     0)
       .query(`
-        INSERT INTO tblCBDShops
+        INSERT INTO tblHeadShops
           (Id, Name, Description, Phone, Email, Address, Price,
            StartDay, EndDay, StartTime, EndTime,
            ImagePath, CoverImagePath, IsVerified, Lat, Long)
@@ -147,15 +147,15 @@ exports.createCBDShop = async (req, res) => {
            @ImagePath,@CoverImagePath,@IsVerified,@Lat,@Long)
       `);
 
-    res.status(201).json({ success: true, cbdShopId: id });
+    res.status(201).json({ success: true, headShopId: id });
   } catch (err) {
-    console.error("Error creating CBD shop:", err);
+    console.error("Error creating HeadShop:", err);
     res.status(500).json({ error: "Server error", details: err.message });
   }
 };
 
-// ── Update an existing CBD shop ─────────────────────────────────────────
-exports.updateCBDShop = async (req, res) => {
+// ── Update an existing HeadShop ────────────────────────────────────────
+exports.updateHeadShop = async (req, res) => {
   try {
     const pool = getPool();
     const { id } = req.params;
@@ -170,7 +170,7 @@ exports.updateCBDShop = async (req, res) => {
       .input("Id", sql.UniqueIdentifier, id)
       .query(`
         SELECT ImagePath AS oldImage, CoverImagePath AS oldCover
-        FROM tblCBDShops
+        FROM tblHeadShops
         WHERE Id = @Id
       `);
     const { oldImage, oldCover } = oldRes.recordset[0] || {};
@@ -206,46 +206,46 @@ exports.updateCBDShop = async (req, res) => {
       .input("EndTime",     sql.VarChar(50),       `${endTime}:00`)
       .input("IsVerified",  sql.Bit,               verifiedBit);
 
-    if (newImage) reqQ.input("ImagePath", sql.NVarChar, newImage);
+    if (newImage) reqQ.input("ImagePath",      sql.NVarChar, newImage);
     if (newCover) reqQ.input("CoverImagePath", sql.NVarChar, newCover);
 
     await reqQ.query(`
-      UPDATE tblCBDShops
+      UPDATE tblHeadShops
       SET
-        Name           = @Name,
-        Description    = @Description,
-        Phone          = @Phone,
-        Email          = @Email,
-        Address        = @Address,
-        Price          = @Price,
-        StartDay       = @StartDay,
-        EndDay         = @EndDay,
-        StartTime      = @StartTime,
-        EndTime        = @EndTime,
+        Name            = @Name,
+        Description     = @Description,
+        Phone           = @Phone,
+        Email           = @Email,
+        Address         = @Address,
+        Price           = @Price,
+        StartDay        = @StartDay,
+        EndDay          = @EndDay,
+        StartTime       = @StartTime,
+        EndTime         = @EndTime,
         ${newImage   ? "ImagePath       = @ImagePath," : ""}
         ${newCover   ? "CoverImagePath  = @CoverImagePath," : ""}
-        IsVerified     = @IsVerified
+        IsVerified      = @IsVerified
       WHERE Id = @Id
     `);
 
-    res.json({ message: "CBD Shop updated successfully" });
+    res.json({ message: "HeadShop updated successfully" });
   } catch (err) {
-    console.error("Error updating CBD shop:", err);
-    res.status(500).json({ error: "Failed to update CBD shop", details: err.message });
+    console.error("Error updating HeadShop:", err);
+    res.status(500).json({ error: "Failed to update HeadShop", details: err.message });
   }
 };
 
-// ── Delete ────────────────────────────────────────────────────────────────
-exports.deleteCBDShop = async (req, res) => {
+// ── Delete ─────────────────────────────────────────────────────────────
+exports.deleteHeadShop = async (req, res) => {
   try {
     const pool = getPool();
     const { id } = req.params;
     await pool.request()
       .input("Id", sql.UniqueIdentifier, id)
-      .query(`DELETE FROM tblCBDShops WHERE Id = @Id`);
-    res.json({ message: "CBD Shop deleted successfully" });
+      .query(`DELETE FROM tblHeadShops WHERE Id = @Id`);
+    res.json({ message: "HeadShop deleted successfully" });
   } catch (err) {
-    console.error("Error deleting CBD shop:", err);
-    res.status(500).json({ error: "Failed to delete CBD shop", details: err.message });
+    console.error("Error deleting HeadShop:", err);
+    res.status(500).json({ error: "Failed to delete HeadShop", details: err.message });
   }
 };
