@@ -66,7 +66,7 @@ export default function AdminHeadShopsContent() {
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
   const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // 1) GET list
+  // 1) fetch list
   const fetchShops = async () => {
     try {
       const res = await apiClient.get<{ headShops:any[] }>("/HeadShops", {
@@ -80,7 +80,7 @@ export default function AdminHeadShopsContent() {
         endTime:   it.endTime.slice(11,16),
       })));
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching head shops:", err);
       alert("Fehler beim Laden der Head Shops");
     }
   };
@@ -116,13 +116,13 @@ export default function AdminHeadShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) field change
-  const onChange = (e:React.ChangeEvent<any>) => {
+  // 3) handle form field change
+  const onChange = (e: React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
     setForm(f => ({ ...f, [name]: type==="checkbox" ? checked : value }));
   };
 
-  // 4) file pick
+  // 4) handle file pick
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -133,16 +133,25 @@ export default function AdminHeadShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) POST / PUT via fetch + FormData
-  const onSubmit = async (e:React.FormEvent) => {
+  // 5) submit create/update
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // normalize price: "xx,yy" -> "xx.yy"
+    // normalize price
     let raw = form.price.replace(",",".").trim();
-    let num = parseFloat(raw);
-    if (isNaN(num)) num = 0;
+    let num = parseFloat(raw); if (isNaN(num)) num = 0;
     num = Math.round(num*100)/100;
     const priceFixed = num.toFixed(2);
+
+    // normalize times to "HH:mm"
+    const normalizeHHmm = (t: string) => {
+      const parts = t.split(":");
+      return parts.length >= 2
+        ? `${parts[0].padStart(2,"0")}:${parts[1].padStart(2,"0")}`
+        : t;
+    };
+    const start = normalizeHHmm(form.startTime);
+    const end   = normalizeHHmm(form.endTime);
 
     const fd = new FormData();
     fd.append("name",        form.name);
@@ -153,9 +162,8 @@ export default function AdminHeadShopsContent() {
     fd.append("price",       priceFixed);
     fd.append("startDay",    form.startDay);
     fd.append("endDay",      form.endDay);
-    // *** append :00 exactly once ***
-    fd.append("startTime", form.startTime);
-    fd.append("endTime",   form.endTime);
+    fd.append("startTime",   start);
+    fd.append("endTime",     end);
     fd.append("isVerified",  String(form.isVerified));
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
@@ -184,8 +192,8 @@ export default function AdminHeadShopsContent() {
     }
   };
 
-  // 6) DELETE
-  const onDelete = async (id:string) => {
+  // 6) delete
+  const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
       await apiClient.delete(`/HeadShops/${id}`, {
@@ -199,15 +207,15 @@ export default function AdminHeadShopsContent() {
 
   return (
     <div>
-      {/* header */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Head Shops</h2>
-        <Button onClick={()=>openModal()}>Neuer Head Shop</Button>
+        <Button onClick={() => openModal()}>Neuer Head Shop</Button>
       </div>
 
-      {/* list */}
+      {/* List */}
       <ul className="divide-y">
-        {shops.map(s=>(
+        {shops.map(s => (
           <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
             <div className="flex items-center gap-3">
               {s.imagePath && (
@@ -220,17 +228,19 @@ export default function AdminHeadShopsContent() {
               )}
               <span
                 className="cursor-pointer text-blue-600 hover:underline"
-                onClick={()=>openModal(s)}
-              >{s.name}</span>
+                onClick={() => openModal(s)}
+              >
+                {s.name}
+              </span>
             </div>
-            <Button variant="destructive" onClick={()=>onDelete(s.id)}>
+            <Button variant="destructive" onClick={() => onDelete(s.id)}>
               Löschen
             </Button>
           </li>
         ))}
       </ul>
 
-      {/* modal */}
+      {/* Modal */}
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -238,17 +248,18 @@ export default function AdminHeadShopsContent() {
         >
           <div
             ref={modalRef}
-            onClick={e=>e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
             className="bg-white w-full max-w-lg max-h-[80vh] overflow-auto rounded-lg p-6"
           >
-
             <button
               className="absolute top-2 right-2 text-gray-500 text-2xl"
               onClick={closeModal}
-            >×</button>
+            >
+              ×
+            </button>
 
             <h3 className="text-2xl font-bold mb-4">
-              {mode==="edit" ? "Head Shop bearbeiten" : "Neuer Head Shop"}
+              {mode === "edit" ? "Head Shop bearbeiten" : "Neuer Head Shop"}
             </h3>
 
             <form onSubmit={onSubmit} className="space-y-4">
@@ -264,18 +275,20 @@ export default function AdminHeadShopsContent() {
                     />
                     <button
                       type="button"
-                      onClick={()=>{
+                      onClick={() => {
                         setImageFile(null);
                         setImagePreview(null);
                       }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </div>
                 ) : (
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={e=>handleFile(e,setImageFile,setImagePreview)}
+                    onChange={e => handleFile(e, setImageFile, setImagePreview)}
                   />
                 )}
               </div>
@@ -292,18 +305,20 @@ export default function AdminHeadShopsContent() {
                     />
                     <button
                       type="button"
-                      onClick={()=>{
+                      onClick={() => {
                         setCoverFile(null);
                         setCoverPreview(null);
                       }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </div>
                 ) : (
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={e=>handleFile(e,setCoverFile,setCoverPreview)}
+                    onChange={e => handleFile(e, setCoverFile, setCoverPreview)}
                   />
                 )}
               </div>
@@ -371,7 +386,7 @@ export default function AdminHeadShopsContent() {
                   name="price"
                   value={form.price}
                   onChange={onChange}
-                  className="w-full border p-2 rounded"
+                  className="w-full	border p-2 rounded"
                 />
               </div>
 
@@ -387,7 +402,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d=><option key={d} value={d}>{d}</option>)}
+                      {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div>
@@ -398,7 +413,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d=><option key={d} value={d}>{d}</option>)}
+                      {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                 </div>
@@ -411,7 +426,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t=><option key={t} value={t}>{t}</option>)}
+                      {times.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
@@ -422,7 +437,7 @@ export default function AdminHeadShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t=><option key={t} value={t}>{t}</option>)}
+                      {times.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
@@ -442,9 +457,10 @@ export default function AdminHeadShopsContent() {
                 </label>
               </div>
 
+              {/* Actions */}
               <div className="flex justify-end space-x-4 mt-6">
                 <Button type="submit">
-                  {mode==="edit" ? "Speichern" : "Hinzufügen"}
+                  {mode === "edit" ? "Speichern" : "Hinzufügen"}
                 </Button>
                 <Button variant="outline" onClick={closeModal}>
                   Abbrechen
