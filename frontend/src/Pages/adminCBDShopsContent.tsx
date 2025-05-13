@@ -1,4 +1,5 @@
 // src/components/AdminCBDShopsContent.tsx
+
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ interface CBDShop {
   phone: string;
   email: string;
   address: string;
-  price: string;            // coming from server as a number, we'll treat as string "42,33"
+  price: string;            // server price formatted as "xx,yy"
   startDay: string;
   endDay: string;
   startTime: string;        // "HH:mm"
@@ -37,7 +38,7 @@ type Form = Omit<CBDShop, "id">;
 const defaultForm: Form = {
   name: "", description: "",
   phone: "", email: "", address: "",
-  price: "",                  // start empty
+  price: "",
   startDay: days[0], endDay: days[0],
   startTime: times[0], endTime: times[0],
   isVerified: false,
@@ -56,10 +57,13 @@ export default function AdminCBDShopsContent() {
   const [open, setOpen]                 = useState(false);
   const modalRef                        = useRef<HTMLDivElement>(null);
 
-  // admin key header
+  // Admin key header for authenticated calls
   const headers = { "x-admin-key": localStorage.getItem("adminKey") ?? "" };
 
-  // 1) fetch list
+  // Base URL for images, derived from axios baseURL
+  const API_BASE = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
+
+  // Fetch the list of shops
   const fetchShops = async () => {
     try {
       const res = await apiClient.get<{ cbdShops: any[] }>("/CBDShops", {
@@ -68,11 +72,9 @@ export default function AdminCBDShopsContent() {
       });
       setShops(res.data.cbdShops.map(it => ({
         ...it,
-        // server returns price as number, convert back to string "xx,yy"
-        price:         Number(it.price).toFixed(2).replace(".", ","),
-        // server already sends "HH:mm"
-        startTime:     it.startTime,
-        endTime:       it.endTime,
+        price: Number(it.price).toFixed(2).replace(".", ","),
+        startTime: it.startTime,
+        endTime: it.endTime,
       })));
     } catch (err) {
       console.error("Error fetching CBD shops:", err);
@@ -81,18 +83,16 @@ export default function AdminCBDShopsContent() {
   };
   useEffect(fetchShops, []);
 
-  // 2) open modal (add or edit)
+  // Open modal for add/edit
   const openModal = (shop?: CBDShop) => {
     if (shop) {
       setSelected(shop);
       setForm(shop);
-      setImagePreview(shop.imagePath
-        ? `/images/CBDShops/${shop.imagePath}`
-        : null
+      setImagePreview(
+        shop.imagePath ? `${API_BASE}/images/CBDShops/${shop.imagePath}` : null
       );
-      setCoverPreview(shop.coverImagePath
-        ? `/images/CBDShops/${shop.coverImagePath}`
-        : null
+      setCoverPreview(
+        shop.coverImagePath ? `${API_BASE}/images/CBDShops/${shop.coverImagePath}` : null
       );
       setImageFile(null);
       setCoverFile(null);
@@ -110,7 +110,7 @@ export default function AdminCBDShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) handle form change
+  // Handle text/select/checkbox changes
   const onChange = (
     e: React.ChangeEvent<HTMLInputElement|HTMLTextAreaElement|HTMLSelectElement>
   ) => {
@@ -121,7 +121,7 @@ export default function AdminCBDShopsContent() {
     }));
   };
 
-  // 4) handle file pick
+  // Handle file selection
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setFn: typeof setImageFile | typeof setCoverFile,
@@ -133,16 +133,16 @@ export default function AdminCBDShopsContent() {
     setPrev(URL.createObjectURL(file));
   };
 
-  // 5) submit create/update
+  // Submit add/edit form
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // normalize price: "42,33" → "42.33"
+    // Normalize and format price
     let raw = form.price.replace(",", ".").trim();
     let num = parseFloat(raw);
     if (isNaN(num)) num = 0;
     num = Math.round(num * 100) / 100;
-    const priceFixed = num.toFixed(2); // "42.33"
+    const priceFixed = num.toFixed(2);
 
     const fd = new FormData();
     fd.append("name",        form.name);
@@ -160,7 +160,7 @@ export default function AdminCBDShopsContent() {
     if (coverFile) fd.append("cover", coverFile);
 
     try {
-      const cfg = { headers };
+      const cfg = { headers }; // let axios set Content-Type with boundary
       if (mode === "add") {
         await apiClient.post("/CBDShops", fd, cfg);
       } else if (selected) {
@@ -174,7 +174,7 @@ export default function AdminCBDShopsContent() {
     }
   };
 
-  // 6) delete
+  // Delete a shop
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
     try {
@@ -201,7 +201,7 @@ export default function AdminCBDShopsContent() {
             <div className="flex items-center gap-3">
               {s.imagePath && (
                 <img
-                  src={`/images/CBDShops/${s.imagePath}`}
+                  src={`${API_BASE}/images/CBDShops/${s.imagePath}`}
                   alt={s.name}
                   className="w-10 h-10 rounded-full object-cover border-2"
                   loading="lazy"
@@ -382,9 +382,7 @@ export default function AdminCBDShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
+                      {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div>
@@ -395,9 +393,7 @@ export default function AdminCBDShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
+                      {days.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                 </div>
@@ -410,9 +406,7 @@ export default function AdminCBDShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
+                      {times.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
@@ -423,9 +417,7 @@ export default function AdminCBDShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
+                      {times.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                 </div>
