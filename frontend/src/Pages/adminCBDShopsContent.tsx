@@ -58,7 +58,6 @@ export default function AdminCBDShopsContent() {
 
   // Your API origin (e.g. https://fuego-dev.onrender.com)
   const API_BASE = import.meta.env.VITE_API_BASE || "";
-
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
 
   // 1) Fetch shops
@@ -79,7 +78,7 @@ export default function AdminCBDShopsContent() {
       alert("Fehler beim Laden der CBD Shops");
     }
   };
-  useEffect(() => { fetchShops(); }, []);
+  useEffect(fetchShops, []);
 
   // 2) Open modal
   const openModal = (shop?: CBDShop) => {
@@ -119,7 +118,7 @@ export default function AdminCBDShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) Submit add/edit via fetch
+  // 5) Submit add/edit via fetch with robust JSON handling
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -130,22 +129,23 @@ export default function AdminCBDShopsContent() {
     num = Math.round(num * 100)/100;
     const priceFixed = num.toFixed(2);
 
+    // build FormData
     const fd = new FormData();
-    fd.append("name",        form.name);
+    fd.append("name", form.name);
     fd.append("description", form.description);
-    fd.append("phone",       form.phone);
-    fd.append("email",       form.email);
-    fd.append("address",     form.address);
-    fd.append("price",       priceFixed);
-    fd.append("startDay",    form.startDay);
-    fd.append("endDay",      form.endDay);
-    fd.append("startTime",   `${form.startTime}:00`);
-    fd.append("endTime",     `${form.endTime}:00`);
-    fd.append("isVerified",  String(form.isVerified));
+    fd.append("phone", form.phone);
+    fd.append("email", form.email);
+    fd.append("address", form.address);
+    fd.append("price", priceFixed);
+    fd.append("startDay", form.startDay);
+    fd.append("endDay", form.endDay);
+    fd.append("startTime", `${form.startTime}:00`);
+    fd.append("endTime", `${form.endTime}:00`);
+    fd.append("isVerified", String(form.isVerified));
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
 
-    // debug
+    // debug FormData
     for (let [k,v] of fd.entries()) console.log("FD:", k, v);
 
     const url = mode === "add"
@@ -156,14 +156,42 @@ export default function AdminCBDShopsContent() {
       const res = await fetch(url, {
         method: mode === "add" ? "POST" : "PUT",
         headers: { "x-admin-key": ADMIN_KEY },
-        body: fd
+        body: fd,
       });
-      const json = await res.json();
-      console.log("server response:", json);
+
+      // read raw text
+      const text = await res.text();
+      console.log("📥 raw server response:", text);
+
+      // check content-type
+      const ct = res.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) {
+        alert(`Unerwartete Server-Antwort:\n${text}`);
+        return;
+      }
+
+      // parse JSON
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        console.error("JSON parse error:", err);
+        alert("Fehler beim Verarbeiten der Server-Antwort. Details in der Konsole.");
+        return;
+      }
+
+      // handle HTTP errors
+      if (!res.ok) {
+        const msg = data.error || JSON.stringify(data);
+        alert(`Server-Fehler: ${msg}`);
+        return;
+      }
+
+      console.log("✅ parsed JSON:", data);
       await fetchShops();
       closeModal();
     } catch (err) {
-      console.error(err);
+      console.error("Netzwerk- oder Fetch-Fehler:", err);
       alert("Speichern fehlgeschlagen");
     }
   };
@@ -197,7 +225,10 @@ export default function AdminCBDShopsContent() {
                   loading="lazy"
                 />
               )}
-              <span className="cursor-pointer text-blue-600" onClick={() => openModal(s)}>
+              <span
+                className="cursor-pointer text-blue-600 hover:underline"
+                onClick={() => openModal(s)}
+              >
                 {s.name}
               </span>
             </div>
@@ -216,7 +247,7 @@ export default function AdminCBDShopsContent() {
               {mode === "edit" ? "CBD Shop bearbeiten" : "Neuer CBD Shop"}
             </h3>
             <form onSubmit={onSubmit} className="space-y-4">
-              {/* Profile Image */}
+              {/* Profilbild */}
               <div>
                 <label className="block text-sm mb-1">Profilbild</label>
                 {imagePreview ? (
@@ -229,7 +260,7 @@ export default function AdminCBDShopsContent() {
                 )}
               </div>
 
-              {/* Cover Image */}
+              {/* Coverbild */}
               <div>
                 <label className="block text-sm mb-1">Coverbild</label>
                 {coverPreview ? (
@@ -242,7 +273,7 @@ export default function AdminCBDShopsContent() {
                 )}
               </div>
 
-              {/* Other fields… */}
+              {/* Weitere Felder: Name, Beschreibung, Telefon, E-Mail, Adresse, Preis */}
               <div>
                 <label className="block text-sm mb-1">Name</label>
                 <input name="name" value={form.name} onChange={onChange} required className="w-full border p-2 rounded" />
@@ -270,6 +301,7 @@ export default function AdminCBDShopsContent() {
                 <input name="price" value={form.price} onChange={onChange} className="w-full border p-2 rounded" />
               </div>
 
+              {/* Öffnungszeiten */}
               <fieldset className="border p-4 rounded">
                 <legend className="font-semibold mb-2">Öffnungszeiten</legend>
                 <div className="grid grid-cols-2 gap-4">
@@ -302,6 +334,7 @@ export default function AdminCBDShopsContent() {
                 </div>
               </fieldset>
 
+              {/* Verifiziert */}
               <div>
                 <label className="inline-flex items-center gap-2">
                   <input type="checkbox" name="isVerified" checked={form.isVerified} onChange={onChange} />
@@ -310,7 +343,7 @@ export default function AdminCBDShopsContent() {
               </div>
 
               <div className="flex justify-end space-x-4 mt-6">
-                <Button type="submit">{mode==="edit"?"Speichern":"Hinzufügen"}</Button>
+                <Button type="submit">{mode === "edit" ? "Speichern" : "Hinzufügen"}</Button>
                 <Button variant="outline" onClick={closeModal}>Abbrechen</Button>
               </div>
             </form>
