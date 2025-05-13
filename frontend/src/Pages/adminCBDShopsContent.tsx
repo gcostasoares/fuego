@@ -57,17 +57,16 @@ export default function AdminCBDShopsContent() {
   const [open, setOpen]                 = useState(false);
   const modalRef                        = useRef<HTMLDivElement>(null);
 
-  // your API and image base
-  const headers = { "x-admin-key": localStorage.getItem("adminKey") ?? "" };
-  const IMG_BASE = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
+  const ADMIN_KEY = localStorage.getItem("adminKey") || "";
+  const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // fetch shops
+  // 1) GET list (axios)
   const fetchShops = async () => {
     try {
-      const res = await apiClient.get<{ cbdShops:any[] }>(
-        "/CBDShops",
-        { params:{ pageNumber:1,pageSize:50 }, headers }
-      );
+      const res = await apiClient.get<{ cbdShops:any[] }>("/CBDShops", {
+        params: { pageNumber:1, pageSize:50 },
+        headers: { "x-admin-key": ADMIN_KEY }
+      });
       setShops(res.data.cbdShops.map(it => ({
         ...it,
         price: Number(it.price).toFixed(2).replace(".",","),
@@ -81,17 +80,13 @@ export default function AdminCBDShopsContent() {
   };
   useEffect(fetchShops, []);
 
-  // open modal
+  // 2) Open modal
   const openModal = (shop?:CBDShop) => {
     if (shop) {
       setSelected(shop);
       setForm(shop);
-      setImagePreview(
-        shop.imagePath ? `${IMG_BASE}/images/CBDShops/${shop.imagePath}` : null
-      );
-      setCoverPreview(
-        shop.coverImagePath ? `${IMG_BASE}/images/CBDShops/${shop.coverImagePath}` : null
-      );
+      setImagePreview(shop.imagePath ? `${IMG_BASE}/images/CBDShops/${shop.imagePath}` : null);
+      setCoverPreview(shop.coverImagePath ? `${IMG_BASE}/images/CBDShops/${shop.coverImagePath}` : null);
       setMode("edit");
     } else {
       setSelected(null);
@@ -106,66 +101,80 @@ export default function AdminCBDShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // form change
+  // 3) Handle inputs
   const onChange = (e:React.ChangeEvent<any>) => {
-    const {name,value,type,checked} = e.target;
+    const { name, value, type, checked } = e.target;
     setForm(f => ({ ...f, [name]: type==="checkbox"?checked:value }));
   };
 
-  // file pick
+  // 4) Handle file picks
   const handleFile = (
-    e:React.ChangeEvent<HTMLInputElement>,
-    setter:typeof setImageFile,
-    previewSetter:typeof setImagePreview
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: typeof setImageFile,
+    previewSetter: typeof setImagePreview
   ) => {
     const file = e.target.files?.[0] ?? null;
     setter(file);
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // submit
-  const onSubmit = async(e:React.FormEvent) => {
+  // 5) CREATE / UPDATE via fetch to preserve FormData boundary
+  const onSubmit = async (e:React.FormEvent) => {
     e.preventDefault();
+
     // normalize price
     let raw = form.price.replace(",",".").trim();
-    let num = parseFloat(raw); if (isNaN(num)) num=0;
+    let num = parseFloat(raw);
+    if (isNaN(num)) num = 0;
     num = Math.round(num*100)/100;
     const priceFixed = num.toFixed(2);
 
     const fd = new FormData();
-    fd.append("name", form.name);
+    fd.append("name",        form.name);
     fd.append("description", form.description);
-    fd.append("phone", form.phone);
-    fd.append("email", form.email);
-    fd.append("address", form.address);
-    fd.append("price", priceFixed);
-    fd.append("startDay", form.startDay);
-    fd.append("endDay", form.endDay);
-    fd.append("startTime", `${form.startTime}:00`);
-    fd.append("endTime",   `${form.endTime}:00`);
-    fd.append("isVerified", String(form.isVerified));
+    fd.append("phone",       form.phone);
+    fd.append("email",       form.email);
+    fd.append("address",     form.address);
+    fd.append("price",       priceFixed);
+    fd.append("startDay",    form.startDay);
+    fd.append("endDay",      form.endDay);
+    fd.append("startTime",   `${form.startTime}:00`);
+    fd.append("endTime",     `${form.endTime}:00`);
+    fd.append("isVerified",  String(form.isVerified));
     if (imageFile) fd.append("image", imageFile, imageFile.name);
     if (coverFile) fd.append("cover", coverFile, coverFile.name);
 
+    const url = mode==="add"
+      ? `${IMG_BASE}/CBDShops`
+      : `${IMG_BASE}/CBDShops/${selected!.id}`;
+
     try {
-      if (mode==="add") {
-        await apiClient.post("/CBDShops", fd, { headers });
-      } else {
-        await apiClient.put(`/CBDShops/${selected!.id}`, fd, { headers });
+      const res = await fetch(url, {
+        method: mode==="add" ? "POST" : "PUT",
+        headers: { "x-admin-key": ADMIN_KEY },
+        body: fd
+      });
+      const txt = await res.text();
+      if (!res.ok) {
+        console.error("Server responded:", txt);
+        alert("Server-Fehler:\n"+txt);
+        return;
       }
       await fetchShops();
       closeModal();
-    } catch(err) {
+    } catch (err) {
       console.error(err);
-      alert("Speichern fehlgeschlagen");
+      alert("Netzwerkfehler beim Speichern");
     }
   };
 
-  // delete
-  const onDelete = async(id:string) => {
+  // 6) DELETE (axios)
+  const onDelete = async (id:string) => {
     if (!confirm("Löschen?")) return;
     try {
-      await apiClient.delete(`/CBDShops/${id}`, { headers });
+      await apiClient.delete(`/CBDShops/${id}`, {
+        headers: { "x-admin-key": ADMIN_KEY }
+      });
       await fetchShops();
     } catch {
       alert("Löschen fehlgeschlagen");
@@ -174,11 +183,13 @@ export default function AdminCBDShopsContent() {
 
   return (
     <div>
+      {/* header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">CBD Shops</h2>
         <Button onClick={()=>openModal()}>Neuer CBD Shop</Button>
       </div>
 
+      {/* list */}
       <ul className="divide-y">
         {shops.map(s=>(
           <li key={s.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
@@ -191,15 +202,21 @@ export default function AdminCBDShopsContent() {
                   loading="lazy"
                 />
               )}
-              <span className="cursor-pointer text-blue-600 hover:underline" onClick={()=>openModal(s)}>
+              <span
+                className="cursor-pointer text-blue-600 hover:underline"
+                onClick={()=>openModal(s)}
+              >
                 {s.name}
               </span>
             </div>
-            <Button variant="destructive" onClick={()=>onDelete(s.id)}>Löschen</Button>
+            <Button variant="destructive" onClick={()=>onDelete(s.id)}>
+              Löschen
+            </Button>
           </li>
         ))}
       </ul>
 
+      {/* modal */}
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -210,22 +227,21 @@ export default function AdminCBDShopsContent() {
             onClick={e=>e.stopPropagation()}
             className="bg-white w-full max-w-lg max-h-[80vh] overflow-auto rounded-lg p-6"
           >
+
             <button
               className="absolute top-2 right-2 text-gray-500 text-2xl"
               onClick={closeModal}
-            >
-              ×
-            </button>
+            >×</button>
+
             <h3 className="text-2xl font-bold mb-4">
               {mode==="edit" ? "CBD Shop bearbeiten" : "Neuer CBD Shop"}
             </h3>
 
             <form onSubmit={onSubmit} className="space-y-4">
+
               {/* Profilbild */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Profilbild
-                </label>
+                <label className="block text-sm font-medium mb-1">Profilbild</label>
                 {imagePreview ? (
                   <div className="relative inline-block">
                     <img
@@ -240,9 +256,7 @@ export default function AdminCBDShopsContent() {
                         setImagePreview(null);
                       }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
-                    >
-                      ×
-                    </button>
+                    >×</button>
                   </div>
                 ) : (
                   <input
@@ -256,9 +270,7 @@ export default function AdminCBDShopsContent() {
 
               {/* Coverbild */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Coverbild
-                </label>
+                <label className="block text-sm font-medium mb-1">Coverbild</label>
                 {coverPreview ? (
                   <div className="relative inline-block">
                     <img
@@ -273,9 +285,7 @@ export default function AdminCBDShopsContent() {
                         setCoverPreview(null);
                       }}
                       className="absolute top-0 right-0 bg-white p-1 text-red-500 rounded-full"
-                    >
-                      ×
-                    </button>
+                    >×</button>
                   </div>
                 ) : (
                   <input
@@ -301,9 +311,7 @@ export default function AdminCBDShopsContent() {
 
               {/* Beschreibung */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Beschreibung
-                </label>
+                <label className="block text-sm font-medium mb-1">Beschreibung</label>
                 <textarea
                   name="description"
                   value={form.description}
@@ -316,9 +324,7 @@ export default function AdminCBDShopsContent() {
               {/* Telefon & E-Mail */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Telefon
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Telefon</label>
                   <input
                     name="phone"
                     value={form.phone}
@@ -327,9 +333,7 @@ export default function AdminCBDShopsContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    E-Mail
-                  </label>
+                  <label className="block text-sm font-medium mb-1">E-Mail</label>
                   <input
                     name="email"
                     type="email"
@@ -342,9 +346,7 @@ export default function AdminCBDShopsContent() {
 
               {/* Adresse & Preis */}
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Adresse
-                </label>
+                <label className="block text-sm font-medium mb-1">Adresse</label>
                 <input
                   name="address"
                   value={form.address}
@@ -353,9 +355,7 @@ export default function AdminCBDShopsContent() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Preis (€)
-                </label>
+                <label className="block text-sm font-medium mb-1">Preis (€)</label>
                 <input
                   name="price"
                   value={form.price}
@@ -376,10 +376,8 @@ export default function AdminCBDShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
+                      {days.map(d=>(
+                        <option key={d} value={d}>{d}</option>
                       ))}
                     </select>
                   </div>
@@ -391,15 +389,12 @@ export default function AdminCBDShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {days.map(d => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
+                      {days.map(d=>(
+                        <option key={d} value={d}>{d}</option>
                       ))}
                     </select>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div>
                     <label className="block text-sm mb-1">Zeit von</label>
@@ -409,10 +404,8 @@ export default function AdminCBDShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
+                      {times.map(t=>(
+                        <option key={t} value={t}>{t}</option>
                       ))}
                     </select>
                   </div>
@@ -424,10 +417,8 @@ export default function AdminCBDShopsContent() {
                       onChange={onChange}
                       className="w-full border p-2 rounded"
                     >
-                      {times.map(t => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
+                      {times.map(t=>(
+                        <option key={t} value={t}>{t}</option>
                       ))}
                     </select>
                   </div>
@@ -449,12 +440,13 @@ export default function AdminCBDShopsContent() {
 
               <div className="flex justify-end space-x-4 mt-6">
                 <Button type="submit">
-                  {mode === "edit" ? "Speichern" : "Hinzufügen"}
+                  {mode==="edit"?"Speichern":"Hinzufügen"}
                 </Button>
                 <Button variant="outline" onClick={closeModal}>
                   Abbrechen
                 </Button>
               </div>
+
             </form>
           </div>
         </div>
