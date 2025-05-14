@@ -295,6 +295,16 @@ export default function AdminProductsContent() {
     selTerp.forEach(id=>fd.append("terpeneFilter",id));
     selTaste.forEach(id=>fd.append("tasteFilter",id));
 
+    console.group("🔍 Product FormData");
+for (const [key, value] of fd.entries()) {
+  if (value instanceof File) {
+    console.log(key, "→ File:", value.name);
+  } else {
+    console.log(key, "→", value);
+  }
+}
+console.groupEnd();
+
     // API call
     if (mode==="add") {
       await apiClient.post("/Products", fd, {
