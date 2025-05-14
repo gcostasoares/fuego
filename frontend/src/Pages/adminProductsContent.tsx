@@ -25,11 +25,11 @@ type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteI
 type Product = {
   id: string;
   name: string;
-  price: string;
+  price: number;
   thc: number;
   cbd: number;
   genetics: string;
-  imageUrl: string[];       // [profile, ...gallery]
+  imageUrl: string[];
   isAvailable: string;
   manufacturer: string;
   origin: string | null;
@@ -37,7 +37,7 @@ type Product = {
 };
 type Form = {
   name: string;
-  price: string;
+  price: number;
   thc: number;
   cbd: number;
   genetics: string;
@@ -55,12 +55,12 @@ const defaultForm: Form = {
 type GalleryItem = {
   id: string;
   src: string;
-  file?: File;               // newly added
-  existingFilename?: string; // from server
+  file?: File;
+  existingFilename?: string;
 };
 
 export default function AdminProductsContent() {
-  // data
+  // DATA
   const [products, setProducts]   = useState<Product[]>([]);
   const [effects, setEffects]     = useState<Lookup[]>([]);
   const [terpenes, setTerpenes]   = useState<Lookup[]>([]);
@@ -69,29 +69,29 @@ export default function AdminProductsContent() {
   const [prodTerp, setProdTerp]   = useState<JT[]>([]);
   const [prodTaste, setProdTaste] = useState<JT[]>([]);
 
-  // modal + form
+  // MODAL + FORM
   const [open, setOpen]         = useState(false);
   const [mode, setMode]         = useState<"add"|"edit">("add");
   const [selected, setSelected] = useState<Product|null>(null);
   const [form, setForm]         = useState<Form>(defaultForm);
 
-  // profile image
+  // PROFILE IMAGE
   const [existingProfile, setExistingProfile] = useState<string|null>(null);
   const [removeProfile, setRemoveProfile]     = useState(false);
   const [profileFile, setProfileFile]         = useState<File|null>(null);
   const [profilePreview, setProfilePreview]   = useState<string|null>(null);
 
-  // gallery images
+  // GALLERY IMAGES
   const [galleryItems, setGalleryItems]   = useState<GalleryItem[]>([]);
   const [removeGallery, setRemoveGallery] = useState<string[]>([]);
 
-  // multi‑select
+  // MULTI-SELECT TAGS
   const [selEff, setSelEff]     = useState<string[]>([]);
   const [selTerp, setSelTerp]   = useState<string[]>([]);
   const [selTaste, setSelTaste] = useState<string[]>([]);
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const API_URL = "https://fuego-ombm.onrender.com";
+  const API_URL  = "https://fuego-ombm.onrender.com";
   const headers  = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function AdminProductsContent() {
     fetchJunctions();
   }, []);
 
-  // fetchProducts now points at lowercase `/products`, with error handling
+  // ── FETCHERS ────────────────────────────────────────────────────────────
   async function fetchProducts() {
     try {
       console.log("[AdminProducts] fetching products…");
@@ -110,12 +110,16 @@ export default function AdminProductsContent() {
         params: { page: 1, pageSize: 50 },
         headers,
       });
-      const list: Product[] =
-        Array.isArray(res.data.products) ? res.data.products :
-        Array.isArray(res.data)          ? res.data          :
-        [];
-      console.log("[AdminProducts] received products:", list);
-      setProducts(list);
+      const list = Array.isArray(res.data.products)
+        ? res.data.products
+        : Array.isArray(res.data)
+          ? res.data
+          : [];
+      // parse imageUrl into array
+      setProducts(list.map((p: any) => ({
+        ...p,
+        imageUrl: Array.isArray(p.imageUrl) ? p.imageUrl : []
+      })));
     } catch (err) {
       console.error("[AdminProducts] fetchProducts error:", err);
       setProducts([]);
@@ -135,20 +139,20 @@ export default function AdminProductsContent() {
     setProdTaste(pu.data);
   }
 
-  // openModal: prepare form + images + tags
+  // ── OPEN / CLOSE MODAL ──────────────────────────────────────────────────
   const openModal = (prod?: Product) => {
     if (prod) {
       setMode("edit");
       setSelected(prod);
       setForm({
         name: prod.name,
-        price: +Number(prod.price).toFixed(2),
-        thc:   +prod.thc.toFixed(2),
-        cbd:   +prod.cbd.toFixed(2),
+        price: prod.price,
+        thc: prod.thc,
+        cbd: prod.cbd,
         genetics: prod.genetics,
         isAvailable: prod.isAvailable === "Available",
-        manufacturer: prod.manufacturer,
-        origin: prod.origin||"",
+        manufacturer: prod.manufacturer || "",
+        origin: prod.origin || "",
         ray: prod.ray
       });
 
@@ -161,7 +165,7 @@ export default function AdminProductsContent() {
 
       // gallery
       setGalleryItems(
-        gallery.map(fn=>({
+        gallery.map(fn => ({
           id: fn,
           src: `${API_URL}/images/Products/${fn}`,
           existingFilename: fn
@@ -169,7 +173,7 @@ export default function AdminProductsContent() {
       );
       setRemoveGallery([]);
 
-      // multi‑select tags
+      // tags
       setSelEff  (prodEff .filter(r=>r.productId===prod.id).map(r=>r.effectId!));
       setSelTerp (prodTerp.filter(r=>r.productId===prod.id).map(r=>r.terpeneId!));
       setSelTaste(prodTaste.filter(r=>r.productId===prod.id).map(r=>r.tasteId!));
@@ -189,12 +193,13 @@ export default function AdminProductsContent() {
   };
   const closeModal = () => setOpen(false);
 
+  // ── FORM CHANGE ─────────────────────────────────────────────────────────
   function onChangeForm(e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) {
     const { name, value, type, checked } = (e.target as any);
     setForm(f=>({ ...f, [name]: type==="checkbox" ? checked : value }));
   }
 
-  // PROFILE handlers
+  // ── PROFILE HANDLERS ────────────────────────────────────────────────────
   function onProfileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]||null;
     setProfileFile(file);
@@ -208,7 +213,7 @@ export default function AdminProductsContent() {
     setExistingProfile(null);
   }
 
-  // GALLERY handlers
+  // ── GALLERY HANDLERS & DND ──────────────────────────────────────────────
   function handleGallery(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
     const arr = Array.from(e.target.files);
@@ -238,7 +243,7 @@ export default function AdminProductsContent() {
     setGalleryItems(a);
   }
 
-  // MULTI-SELECT helpers
+  // ── MULTI-SELECT TAG HELPERS ────────────────────────────────────────────
   function onMultiAdd(
     e: React.ChangeEvent<HTMLSelectElement>,
     setter: React.Dispatch<React.SetStateAction<string[]>>,
@@ -253,7 +258,7 @@ export default function AdminProductsContent() {
     setter(prev=>prev.filter(x=>x!==id));
   }
 
-  // SUBMIT create/update
+  // ── SUBMIT CREATE / UPDATE ───────────────────────────────────────────────
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const fd = new FormData();
@@ -264,10 +269,11 @@ export default function AdminProductsContent() {
     fd.append("thc",   String(form.thc));
     fd.append("cbd",   String(form.cbd));
     fd.append("genetics", form.genetics);
-    fd.append("isAvailable", form.isAvailable?"Available":"Un-Available");
-    fd.append("manufacturer", form.manufacturer);
-    fd.append("origin", form.origin);
-    fd.append("ray", form.ray);
+    // <<< here we switched to the IDs and numeric bit for availability >>>
+    fd.append("isAvailable", form.isAvailable ? "1" : "0");
+    fd.append("manufacturerId", form.manufacturer);
+    fd.append("originId",       form.origin);
+    fd.append("rayId",          form.ray);
     fd.append("rating","0");
 
     // REMOVALS
@@ -295,16 +301,6 @@ export default function AdminProductsContent() {
     selTerp.forEach(id=>fd.append("terpeneFilter",id));
     selTaste.forEach(id=>fd.append("tasteFilter",id));
 
-    console.group("🔍 Product FormData");
-for (const [key, value] of fd.entries()) {
-  if (value instanceof File) {
-    console.log(key, "→ File:", value.name);
-  } else {
-    console.log(key, "→", value);
-  }
-}
-console.groupEnd();
-
     // API call
     if (mode==="add") {
       await apiClient.post("/Products", fd, {
@@ -321,7 +317,7 @@ console.groupEnd();
     closeModal();
   }
 
-  // DELETE
+  // ── DELETE ───────────────────────────────────────────────────────────────
   async function onDelete(id: string) {
     if (!confirm("Delete this product?")) return;
     try {
