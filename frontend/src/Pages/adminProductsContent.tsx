@@ -8,36 +8,30 @@ import {
   DropResult,
 } from "react-beautiful-dnd";
 
-// format prices as “9,64”
-const priceFormatter = new Intl.NumberFormat("de-DE", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-type Lookup = { id: string; title: string };
+type Lookup = { id: string; name: string };
 type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
 type Product = {
   id: string;
   name: string;
+  saleName: string | null;
+  featuredProduct: string | null;
   price: number;
   thc: number;
   cbd: number;
   genetics: string;
   rating: number;
-  imageUrl: string[];        // [profile, ...gallery]
+  imageUrl: string[];
   isAvailable: string;
   manufacturerId: string | null;
-  originId:       string | null;
-  rayId:          string | null;
-  aboutFlower:       string | null;
+  originId: string | null;
+  rayId: string | null;
+  aboutFlower: string | null;
   growerDescription: string | null;
   defaultImageIndex: number;
-  // for display only
-  manufacturer?: string | null;
-  origin?:       string | null;
-  ray?:          string | null;
+  manufacturer: string | null;
+  origin: string | null;
+  ray: string | null;
 };
-
 type Form = {
   name: string;
   price: number;
@@ -45,11 +39,10 @@ type Form = {
   cbd: number;
   genetics: string;
   isAvailable: boolean;
-  manufacturerId: string;
-  originId:       string;
-  rayId:          string;
+  manufacturer: string;
+  origin: string;
+  ray: string;
 };
-
 const defaultForm: Form = {
   name: "",
   price: 0,
@@ -57,65 +50,62 @@ const defaultForm: Form = {
   cbd: 0,
   genetics: "Indica",
   isAvailable: false,
-  manufacturerId: "",
-  originId:       "",
-  rayId:          "",
+  manufacturer: "",
+  origin: "",
+  ray: "",
+};
+
+type GalleryItem = {
+  id: string;
+  src: string;
+  file?: File;
+  existingFilename?: string;
 };
 
 export default function AdminProductsContent() {
-  // ── ITEMS ────────────────────────────────────────────────────────────────
-  const [products,    setProducts]    = useState<Product[]>([]);
-  // lookup tables
-  const [effects,     setEffects]     = useState<Lookup[]>([]);
-  const [terpenes,    setTerpenes]    = useState<Lookup[]>([]);
-  const [tastes,      setTastes]      = useState<Lookup[]>([]);
+  // --- DATA ---
+  const [products, setProducts]       = useState<Product[]>([]);
+  const [terpenes, setTerpenes]       = useState<Lookup[]>([]);
+  const [effects, setEffects]         = useState<Lookup[]>([]);
+  const [strains, setStrains]         = useState<Lookup[]>([]);
   const [manufacturers, setManufacturers] = useState<Lookup[]>([]);
-  const [origins,     setOrigins]     = useState<Lookup[]>([]);
-  const [rays,        setRays]        = useState<Lookup[]>([]);
-  const [strains,     setStrains]     = useState<Lookup[]>([]);
-
+  const [origins, setOrigins]         = useState<Lookup[]>([]);
+  const [tastes, setTastes]           = useState<Lookup[]>([]);
+  const [pharmacies, setPharmacies]   = useState<Lookup[]>([]);
+  const [rays, setRays]               = useState<Lookup[]>([]);
   // junction tables
-  const [prodEff,     setProdEff]     = useState<JT[]>([]);
-  const [prodTerp,    setProdTerp]    = useState<JT[]>([]);
-  const [prodTaste,   setProdTaste]   = useState<JT[]>([]);
+  const [prodEff, setProdEff]         = useState<JT[]>([]);
+  const [prodTerp, setProdTerp]       = useState<JT[]>([]);
+  const [prodTaste, setProdTaste]     = useState<JT[]>([]);
 
-  // ── MODAL + FORM ────────────────────────────────────────────────────────
-  const [open,        setOpen]        = useState(false);
-  const [mode,        setMode]        = useState<"add"|"edit">("add");
-  const [selected,    setSelected]    = useState<Product|null>(null);
-  const [form,        setForm]        = useState<Form>(defaultForm);
+  // --- MODAL & FORM ---
+  const [open, setOpen]               = useState(false);
+  const [mode, setMode]               = useState<"add"|"edit">("add");
+  const [selected, setSelected]       = useState<Product|null>(null);
+  const [form, setForm]               = useState<Form>(defaultForm);
 
-  // PROFILE IMAGE
+  // profile image
   const [existingProfile, setExistingProfile] = useState<string|null>(null);
-  const [removeProfile,   setRemoveProfile]   = useState(false);
-  const [profileFile,     setProfileFile]     = useState<File|null>(null);
-  const [profilePreview,  setProfilePreview]  = useState<string|null>(null);
+  const [removeProfile, setRemoveProfile]     = useState(false);
+  const [profileFile, setProfileFile]         = useState<File|null>(null);
+  const [profilePreview, setProfilePreview]   = useState<string|null>(null);
 
-  // GALLERY IMAGES
-  const [galleryItems,   setGalleryItems]   = useState<Array<{
-    id: string; src: string; file?: File; existingFilename?: string;
-  }>>([]);
-  const [removeGallery,  setRemoveGallery]  = useState<string[]>([]);
+  // gallery
+  const [galleryItems, setGalleryItems]   = useState<GalleryItem[]>([]);
+  const [removeGallery, setRemoveGallery] = useState<string[]>([]);
 
-  // MULTI-SELECT TAGS
-  const [selEff,        setSelEff]        = useState<string[]>([]);
-  const [selTerp,       setSelTerp]       = useState<string[]>([]);
-  const [selTaste,      setSelTaste]      = useState<string[]>([]);
+  // multi-select tags
+  const [selEff, setSelEff]     = useState<string[]>([]);
+  const [selTerp, setSelTerp]   = useState<string[]>([]);
+  const [selTaste, setSelTaste] = useState<string[]>([]);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const API_URL  = "https://fuego-ombm.onrender.com";
   const headers  = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
-  // ── INITIAL FETCH ────────────────────────────────────────────────────────
   useEffect(() => {
     fetchProducts();
-    fetchEffects();
-    fetchTerpenes();
-    fetchTastes();
-    fetchManufacturers();
-    fetchOrigins();
-    fetchRays();
-    fetchStrains();
+    fetchFilters();
     fetchJunctions();
   }, []);
 
@@ -125,86 +115,233 @@ export default function AdminProductsContent() {
         params: { page: 1, pageSize: 50 },
         headers,
       });
-      setProducts(Array.isArray(res.data.products) ? res.data.products : []);
+      const list: Product[] = Array.isArray(res.data.products)
+        ? res.data.products
+        : Array.isArray(res.data)
+          ? res.data
+          : [];
+      setProducts(list);
     } catch (err) {
-      console.error("fetchProducts error:", err);
+      console.error("fetchProducts error", err);
+      setProducts([]);
     }
   }
-  async function fetchEffects()       { setEffects((await apiClient.get("/effects",{headers})).data); }
-  async function fetchTerpenes()      { setTerpenes((await apiClient.get("/terpenes",{headers})).data); }
-  async function fetchTastes()        { setTastes((await apiClient.get("/tastes",{headers})).data); }
-  async function fetchManufacturers() { setManufacturers((await apiClient.get("/manufacturers",{headers})).data); }
-  async function fetchOrigins()       { setOrigins((await apiClient.get("/origins",{headers})).data); }
-  async function fetchRays()          { setRays((await apiClient.get("/rays",{headers})).data); }
-  async function fetchStrains()       { setStrains((await apiClient.get("/strains",{headers})).data); }
-  async function fetchJunctions() {
-    const [pe, pt, pu] = await Promise.all([
-      apiClient.get("/producteffects",  {headers}),
-      apiClient.get("/productterpenes", {headers}),
-      apiClient.get("/producttastes",   {headers}),
-    ]);
-    setProdEff(pe.data);
-    setProdTerp(pt.data);
-    setProdTaste(pu.data);
+
+  async function fetchFilters() {
+    try {
+      const res = await apiClient.get("/product-filters", { headers });
+      const {
+        terpenes,
+        effects,
+        strains,
+        manufacturers,
+        origins,
+        tastes,
+        pharmacies,
+        rays,
+      } = res.data;
+      setTerpenes(terpenes);
+      setEffects(effects);
+      setStrains(strains);
+      setManufacturers(manufacturers);
+      setOrigins(origins);
+      setTastes(tastes);
+      setPharmacies(pharmacies);
+      setRays(rays);
+    } catch (err) {
+      console.error("fetchFilters error", err);
+    }
   }
 
-  // ── OPEN / CLOSE MODAL ───────────────────────────────────────────────────
-  const openModal = (prod?: Product) => {
+  async function fetchJunctions() {
+    try {
+      const [pe, pt, pu] = await Promise.all([
+        apiClient.get("/producteffects",  { headers }),
+        apiClient.get("/productterpenes", { headers }),
+        apiClient.get("/producttastes",   { headers }),
+      ]);
+      setProdEff(pe.data);
+      setProdTerp(pt.data);
+      setProdTaste(pu.data);
+    } catch (err) {
+      console.error("fetchJunctions error", err);
+    }
+  }
+
+  function openModal(prod?: Product) {
     if (prod) {
       setMode("edit");
       setSelected(prod);
       setForm({
         name: prod.name,
-        price: prod.price,
-        thc:   prod.thc,
-        cbd:   prod.cbd,
+        price: +prod.price,
+        thc: +prod.thc,
+        cbd: +prod.cbd,
         genetics: prod.genetics,
         isAvailable: prod.isAvailable === "Available",
-        manufacturerId: prod.manufacturerId || "",
-        originId:       prod.originId       || "",
-        rayId:          prod.rayId          || "",
+        manufacturer: prod.manufacturer || "",
+        origin: prod.origin || "",
+        ray: prod.ray || "",
       });
-      // set up images & tags exactly like before…
-      // (omitted for brevity)
+
+      // profile + gallery
+      const [profile, ...gallery] = prod.imageUrl;
+      setExistingProfile(profile || null);
+      setRemoveProfile(false);
+      setProfileFile(null);
+      setProfilePreview(
+        profile ? `${API_URL}/images/Products/${profile}` : null
+      );
+      setGalleryItems(
+        gallery.map(fn => ({
+          id: fn,
+          src: `${API_URL}/images/Products/${fn}`,
+          existingFilename: fn,
+        }))
+      );
+      setRemoveGallery([]);
+
+      // tags
+      setSelEff(prodEff.filter(r => r.productId === prod.id).map(r => r.effectId!));
+      setSelTerp(prodTerp.filter(r => r.productId === prod.id).map(r => r.terpeneId!));
+      setSelTaste(prodTaste.filter(r => r.productId === prod.id).map(r => r.tasteId!));
     } else {
       setMode("add");
       setSelected(null);
       setForm(defaultForm);
-      // reset images & tags…
+      setExistingProfile(null);
+      setRemoveProfile(false);
+      setProfileFile(null);
+      setProfilePreview(null);
+      setGalleryItems([]);
+      setRemoveGallery([]);
+      setSelEff([]);
+      setSelTerp([]);
+      setSelTaste([]);
     }
     setOpen(true);
-  };
-  const closeModal = () => setOpen(false);
+  }
 
-  // ── FORM HANDLERS ────────────────────────────────────────────────────────
+  function closeModal() {
+    setOpen(false);
+  }
+
   function onChangeForm(e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) {
     const { name, value, type, checked } = e.target as any;
     setForm(f => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   }
 
-  // (…and all the other handlers exactly as you already have them…)
+  function onProfileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null;
+    setProfileFile(file);
+    setProfilePreview(file ? URL.createObjectURL(file) : null);
+    if (existingProfile) setRemoveProfile(true);
+  }
 
-  // ── SUBMIT ──────────────────────────────────────────────────────────────
+  function removeProfileImage() {
+    setProfileFile(null);
+    setProfilePreview(null);
+    if (existingProfile) setRemoveProfile(true);
+    setExistingProfile(null);
+  }
+
+  function handleGallery(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files) return;
+    const arr = Array.from(files);
+    setGalleryItems(prev => [
+      ...prev,
+      ...arr.map(file => ({
+        id: URL.createObjectURL(file),
+        src: URL.createObjectURL(file),
+        file,
+      })),
+    ]);
+    e.target.value = "";
+  }
+
+  function removeGalleryItem(index: number) {
+    setGalleryItems(prev => {
+      const item = prev[index];
+      if (item.existingFilename) {
+        setRemoveGallery(r => [...r, item.existingFilename!]);
+      }
+      const copy = [...prev];
+      copy.splice(index, 1);
+      return copy;
+    });
+  }
+
+  function onDragEnd(result: DropResult) {
+    if (!result.destination) return;
+    const items = Array.from(galleryItems);
+    const [moved] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, moved);
+    setGalleryItems(items);
+  }
+
+  function onMultiAdd(
+    e: React.ChangeEvent<HTMLSelectElement>,
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    existing: string[]
+  ) {
+    const v = e.target.value;
+    if (!v || existing.includes(v)) return;
+    setter([...existing, v]);
+    e.target.value = "";
+  }
+
+  function removeTag(
+    id: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) {
+    setter(prev => prev.filter(x => x !== id));
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const fd = new FormData();
+    // basic fields
+    fd.append("name", form.name);
+    fd.append("price", String(form.price));
+    fd.append("thc",   String(form.thc));
+    fd.append("cbd",   String(form.cbd));
+    fd.append("genetics", form.genetics);
+    fd.append("isAvailable", form.isAvailable ? "Available" : "Un-Available");
+    fd.append("manufacturerId", form.manufacturer);
+    fd.append("originId", form.origin);
+    fd.append("rayId", form.ray);
+    fd.append("rating", "0");
 
-    // BASIC
-    fd.append("name",         form.name);
-    fd.append("price",        String(form.price));
-    fd.append("thc",          String(form.thc));
-    fd.append("cbd",          String(form.cbd));
-    fd.append("genetics",     form.genetics);
-    fd.append("isAvailable",  form.isAvailable ? "Available" : "Un-Available");
+    // removals
+    if (removeProfile && existingProfile) {
+      fd.append("removeImages", existingProfile);
+    }
+    removeGallery.forEach(fn => fd.append("removeImages", fn));
 
-    // —— **IMPORTANT**: send the ID fields your controller expects
-    fd.append("manufacturerId", form.manufacturerId);
-    fd.append("originId",       form.originId);
-    fd.append("rayId",          form.rayId);
+    // new files
+    if (profileFile) fd.append("images", profileFile);
+    galleryItems.forEach(item => {
+      if (item.file) fd.append("images", item.file!);
+    });
 
-    // then images, removals, gallery, tag filters… exactly as before.
+    // image order
+    const order: string[] = [];
+    if (profileFile) order.push("__NEW__");
+    else if (existingProfile) order.push(existingProfile);
+    galleryItems.forEach(item => {
+      if (item.file) order.push("__NEW__");
+      else if (item.existingFilename) order.push(item.existingFilename);
+    });
+    fd.append("imageOrder", JSON.stringify(order));
 
-    const cfg = { headers: { …headers, "Content-Type": "multipart/form-data" } };
+    // tag junctions
+    selEff.forEach(id => fd.append("effectFilter", id));
+    selTerp.forEach(id => fd.append("terpeneFilter", id));
+    selTaste.forEach(id => fd.append("tasteFilter", id));
+
+    const cfg = { headers: { ...headers, "Content-Type": "multipart/form-data" } };
+
     if (mode === "add") {
       await apiClient.post("/Products", fd, cfg);
     } else if (selected) {
@@ -214,18 +351,6 @@ export default function AdminProductsContent() {
     await fetchProducts();
     await fetchJunctions();
     closeModal();
-  }
-
-  // ── DELETE ──────────────────────────────────────────────────────────────
-  async function onDelete(id: string) {
-    if (!confirm("Delete this product?")) return;
-    try {
-      await apiClient.delete(`/Products/${id}`, { headers });
-      await fetchProducts();
-    } catch (err) {
-      console.error("deleteProduct error:", err);
-      alert("Löschen fehlgeschlagen");
-    }
   }
 
   // ── RENDER ───────────────────────────────────────────────────────────────
