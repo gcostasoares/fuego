@@ -1,3 +1,5 @@
+// src/components/AdminProductsContent.tsx
+
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
@@ -14,14 +16,9 @@ const priceFormatter = new Intl.NumberFormat("de-DE", {
   maximumFractionDigits: 2,
 });
 
-// static options from your DB
-const geneticsOptions     = ["Indica", "Hybrid", "Sativa"];
-const manufacturerOptions = ["Cantourage", "Demecan", "Avaay"];
-const originOptions       = ["Kanada", "Uruguay", "Dänemark", "Israel"];
-const rayOptions          = ["Unbestrahlt", "Bestrahlt"];
-
 type Lookup = { id: string; title: string };
 type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
+
 type Product = {
   id: string;
   name: string;
@@ -31,10 +28,11 @@ type Product = {
   genetics: string;
   imageUrl: string[];
   isAvailable: string;
-  manufacturer: string;
-  origin: string | null;
-  ray: string;
+  manufacturer: string | null;
+  origin:       string | null;
+  ray:          string | null;
 };
+
 type Form = {
   name: string;
   price: number;
@@ -46,12 +44,16 @@ type Form = {
   origin: string;
   ray: string;
 };
+
 const defaultForm: Form = {
   name: "", price: 0, thc: 0, cbd: 0,
-  genetics: geneticsOptions[0],
+  genetics: "Indica",
   isAvailable: false,
-  manufacturer: "", origin: "", ray: ""
+  manufacturer: "",
+  origin:       "",
+  ray:          ""
 };
+
 type GalleryItem = {
   id: string;
   src: string;
@@ -68,6 +70,11 @@ export default function AdminProductsContent() {
   const [prodEff, setProdEff]     = useState<JT[]>([]);
   const [prodTerp, setProdTerp]   = useState<JT[]>([]);
   const [prodTaste, setProdTaste] = useState<JT[]>([]);
+
+  // LOOKUPS
+  const [manufacturers, setManufacturers] = useState<Lookup[]>([]);
+  const [origins,       setOrigins]       = useState<Lookup[]>([]);
+  const [rays,          setRays]          = useState<Lookup[]>([]);
 
   // MODAL + FORM
   const [open, setOpen]         = useState(false);
@@ -100,28 +107,27 @@ export default function AdminProductsContent() {
     fetchTerpenes();
     fetchTastes();
     fetchJunctions();
+    fetchLookups();
   }, []);
 
   // ── FETCHERS ────────────────────────────────────────────────────────────
   async function fetchProducts() {
     try {
-      console.log("[AdminProducts] fetching products…");
       const res = await apiClient.get("/products", {
         params: { page: 1, pageSize: 50 },
         headers,
       });
-      const list = Array.isArray(res.data.products)
+      const list: Product[] = Array.isArray(res.data.products)
         ? res.data.products
         : Array.isArray(res.data)
           ? res.data
           : [];
-      // parse imageUrl into array
-      setProducts(list.map((p: any) => ({
+      setProducts(list.map(p => ({
         ...p,
         imageUrl: Array.isArray(p.imageUrl) ? p.imageUrl : []
       })));
     } catch (err) {
-      console.error("[AdminProducts] fetchProducts error:", err);
+      console.error("fetchProducts error", err);
       setProducts([]);
     }
   }
@@ -129,7 +135,7 @@ export default function AdminProductsContent() {
   async function fetchTerpenes()  { setTerpenes((await apiClient.get("/terpenes",{headers})).data); }
   async function fetchTastes()    { setTastes((await apiClient.get("/tastes",{headers})).data); }
   async function fetchJunctions() {
-    const [pe,pt,pu] = await Promise.all([
+    const [pe, pt, pu] = await Promise.all([
       apiClient.get("/producteffects",  {headers}),
       apiClient.get("/productterpenes", {headers}),
       apiClient.get("/producttastes",   {headers}),
@@ -137,6 +143,16 @@ export default function AdminProductsContent() {
     setProdEff(pe.data);
     setProdTerp(pt.data);
     setProdTaste(pu.data);
+  }
+  async function fetchLookups() {
+    const [mRes, oRes, rRes] = await Promise.all([
+      apiClient.get<Lookup[]>("/manufacturers", { headers }),
+      apiClient.get<Lookup[]>("/origins",       { headers }),
+      apiClient.get<Lookup[]>("/rays",          { headers }),
+    ]);
+    setManufacturers(mRes.data);
+    setOrigins(oRes.data);
+    setRays(rRes.data);
   }
 
   // ── OPEN / CLOSE MODAL ──────────────────────────────────────────────────
@@ -152,8 +168,8 @@ export default function AdminProductsContent() {
         genetics: prod.genetics,
         isAvailable: prod.isAvailable === "Available",
         manufacturer: prod.manufacturer || "",
-        origin: prod.origin || "",
-        ray: prod.ray
+        origin:       prod.origin       || "",
+        ray:          prod.ray          || ""
       });
 
       // profile
@@ -269,7 +285,6 @@ export default function AdminProductsContent() {
     fd.append("thc",   String(form.thc));
     fd.append("cbd",   String(form.cbd));
     fd.append("genetics", form.genetics);
-    // <<< here we switched to the IDs and numeric bit for availability >>>
     fd.append("isAvailable", form.isAvailable ? "1" : "0");
     fd.append("manufacturerId", form.manufacturer);
     fd.append("originId",       form.origin);
@@ -286,7 +301,7 @@ export default function AdminProductsContent() {
       if (item.file) fd.append("images", item.file!);
     });
 
-    // IMAGE ORDER placeholder
+    // IMAGE ORDER
     const order: string[] = [];
     if (profileFile) order.push("__NEW__");
     else if (existingProfile) order.push(existingProfile);
@@ -303,11 +318,11 @@ export default function AdminProductsContent() {
 
     // API call
     if (mode==="add") {
-      await apiClient.post("/Products", fd, {
+      await apiClient.post("/Products", fd,{
         headers:{ ...headers, "Content-Type":"multipart/form-data" }
       });
     } else if (selected) {
-      await apiClient.put(`/Products/${selected.id}`, fd, {
+      await apiClient.put(`/Products/${selected.id}`, fd,{
         headers:{ ...headers, "Content-Type":"multipart/form-data" }
       });
     }
@@ -324,11 +339,12 @@ export default function AdminProductsContent() {
       await apiClient.delete(`/Products/${id}`, { headers });
       await fetchProducts();
     } catch (err) {
-      console.error("[AdminProducts] delete error:", err);
+      console.error("deleteProduct error", err);
       alert("Löschen fehlgeschlagen");
     }
   }
 
+  // ── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div>
       {/* HEADER */}
@@ -340,7 +356,10 @@ export default function AdminProductsContent() {
       {/* LIST */}
       <ul className="divide-y">
         {products.map(p=>(
-          <li key={p.id} className="flex justify-between items-center p-2 hover:bg-gray-50">
+          <li
+            key={p.id}
+            className="flex justify-between items-center p-2 hover:bg-gray-50"
+          >
             <div className="flex items-center gap-3">
               {p.imageUrl[0] && (
                 <img
@@ -379,6 +398,7 @@ export default function AdminProductsContent() {
               onClick={closeModal}
               aria-label="Close"
             >×</button>
+
             <h3 className="text-2xl font-bold mb-4">
               {mode==="edit"?"Produkt bearbeiten":"Neues Produkt"}
             </h3>
@@ -413,8 +433,8 @@ export default function AdminProductsContent() {
                 <label className="block font-medium mb-1">Weitere Bilder</label>
                 <input
                   type="file"
-                  accept=".png,.jpg,.jpeg"
                   multiple
+                  accept=".png,.jpg,.jpeg"
                   onChange={handleGallery}
                 />
                 <DragDropContext onDragEnd={onDragEnd}>
@@ -454,7 +474,7 @@ export default function AdminProductsContent() {
                 </DragDropContext>
               </div>
 
-              {/* PRODUCT DETAILS & TAGS */}
+              {/* PRODUCT DETAILS */}
               <fieldset className="border p-4 rounded">
                 <legend className="font-semibold px-2">Produktdetails</legend>
                 <div className="grid grid-cols-2 gap-4 mt-2">
@@ -514,7 +534,7 @@ export default function AdminProductsContent() {
                       onChange={onChangeForm}
                       className="w-full border p-2"
                     >
-                      {geneticsOptions.map(g=>(
+                      {["Indica","Hybrid","Sativa"].map(g=>(
                         <option key={g} value={g}>{g}</option>
                       ))}
                     </select>
@@ -541,8 +561,8 @@ export default function AdminProductsContent() {
                       className="w-full border p-2"
                     >
                       <option value="">Auswählen</option>
-                      {manufacturerOptions.map(m=>(
-                        <option key={m} value={m}>{m}</option>
+                      {manufacturers.map(m=>(
+                        <option key={m.id} value={m.id}>{m.title}</option>
                       ))}
                     </select>
                   </div>
@@ -556,8 +576,8 @@ export default function AdminProductsContent() {
                       className="w-full border p-2"
                     >
                       <option value="">Auswählen</option>
-                      {originOptions.map(o=>(
-                        <option key={o} value={o}>{o}</option>
+                      {origins.map(o=>(
+                        <option key={o.id} value={o.id}>{o.title}</option>
                       ))}
                     </select>
                   </div>
@@ -572,94 +592,94 @@ export default function AdminProductsContent() {
                       className="w-full border p-2"
                     >
                       <option value="">Auswählen</option>
-                      {rayOptions.map(r=>(
-                        <option key={r} value={r}>{r}</option>
+                      {rays.map(r=>(
+                        <option key={r.id} value={r.id}>{r.title}</option>
                       ))}
                     </select>
                   </div>
                 </div>
-
-                {/* Effekte */}
-                <div className="mt-4">
-                  <label className="block font-medium mb-1">Effekte</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {selEff.map(id=>{
-                      const e = effects.find(x=>x.id===id);
-                      return (
-                        <button key={id} type="button"
-                          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center gap-1">
-                          {e?.title}
-                          <span onClick={()=>removeTag(id,setSelEff)}
-                                className="ml-1 cursor-pointer">×</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <select
-                    value=""
-                    onChange={e=>onMultiAdd(e,setSelEff,selEff)}
-                    className="w-full border p-2"
-                  >
-                    <option value="">Effekt hinzufügen…</option>
-                    {effects.filter(x=>!selEff.includes(x.id))
-                            .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
-                  </select>
-                </div>
-
-                {/* Terpene */}
-                <div className="mt-4">
-                  <label className="block font-medium mb-1">Terpene</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {selTerp.map(id=>{
-                      const t = terpenes.find(x=>x.id===id);
-                      return (
-                        <button key={id} type="button"
-                          className="bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1">
-                          {t?.title}
-                          <span onClick={()=>removeTag(id,setSelTerp)}
-                                className="ml-1 cursor-pointer">×</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <select
-                    value=""
-                    onChange={e=>onMultiAdd(e,setSelTerp,selTerp)}
-                    className="w-full border p-2"
-                  >
-                    <option value="">Terpen hinzufügen…</option>
-                    {terpenes.filter(x=>!selTerp.includes(x.id))
-                              .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
-                  </select>
-                </div>
-
-                {/* Geschmäcker */}
-                <div className="mt-4">
-                  <label className="block font-medium mb-1">Geschmäcker</label>
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {selTaste.map(id=>{
-                      const t = tastes.find(x=>x.id===id);
-                      return (
-                        <button key={id} type="button"
-                          className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full flex items-center gap-1">
-                          {t?.title}
-                          <span onClick={()=>removeTag(id,setSelTaste)}
-                                className="ml-1 cursor-pointer">×</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <select
-                    value=""
-                    onChange={e=>onMultiAdd(e,setSelTaste,selTaste)}
-                    className="w-full border p-2"
-                  >
-                    <option value="">Geschmack hinzufügen…</option>
-                    {tastes.filter(x=>!selTaste.includes(x.id))
-                           .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
-                  </select>
-                </div>
               </fieldset>
+
+              {/* Effekte */}
+              <div className="mt-4">
+                <label className="block font-medium mb-1">Effekte</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selEff.map(id=>{
+                    const e = effects.find(x=>x.id===id);
+                    return (
+                      <button key={id} type="button"
+                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center gap-1">
+                        {e?.title}
+                        <span onClick={()=>removeTag(id,setSelEff)}
+                              className="ml-1 cursor-pointer">×</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <select
+                  value=""
+                  onChange={e=>onMultiAdd(e,setSelEff,selEff)}
+                  className="w-full border p-2"
+                >
+                  <option value="">Effekt hinzufügen…</option>
+                  {effects.filter(x=>!selEff.includes(x.id))
+                          .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                </select>
+              </div>
+
+              {/* Terpene */}
+              <div className="mt-4">
+                <label className="block font-medium mb-1">Terpene</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selTerp.map(id=>{
+                    const t = terpenes.find(x=>x.id===id);
+                    return (
+                      <button key={id} type="button"
+                        className="bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1">
+                        {t?.title}
+                        <span onClick={()=>removeTag(id,setSelTerp)}
+                              className="ml-1 cursor-pointer">×</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <select
+                  value=""
+                  onChange={e=>onMultiAdd(e,setSelTerp,selTerp)}
+                  className="w-full border p-2"
+                >
+                  <option value="">Terpen hinzufügen…</option>
+                  {terpenes.filter(x=>!selTerp.includes(x.id))
+                            .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                </select>
+              </div>
+
+              {/* Geschmäcker */}
+              <div className="mt-4">
+                <label className="block font-medium mb-1">Geschmäcker</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selTaste.map(id=>{
+                    const t = tastes.find(x=>x.id===id);
+                    return (
+                      <button key={id} type="button"
+                        className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full flex items-center gap-1">
+                        {t?.title}
+                        <span onClick={()=>removeTag(id,setSelTaste)}
+                              className="ml-1 cursor-pointer">×</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <select
+                  value=""
+                  onChange={e=>onMultiAdd(e,setSelTaste,selTaste)}
+                  className="w-full border p-2"
+                >
+                  <option value="">Geschmack hinzufügen…</option>
+                  {tastes.filter(x=>!selTaste.includes(x.id))
+                         .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                </select>
+              </div>
 
               {/* ACTIONS */}
               <div className="flex justify-end space-x-4">
