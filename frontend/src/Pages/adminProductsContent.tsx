@@ -1,5 +1,3 @@
-// src/components/AdminProductsContent.tsx
-
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
@@ -10,7 +8,7 @@ import {
   DropResult,
 } from "react-beautiful-dnd";
 
-// format prices as “9,64”
+// format list prices as “9,64”
 const priceFormatter = new Intl.NumberFormat("de-DE", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -18,7 +16,6 @@ const priceFormatter = new Intl.NumberFormat("de-DE", {
 
 type Lookup = { id: string; title: string };
 type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
-
 type Product = {
   id: string;
   name: string;
@@ -26,11 +23,19 @@ type Product = {
   thc: number;
   cbd: number;
   genetics: string;
-  imageUrl: string[];
+  rating: number;
+  imageUrl: string[];       // [profile, ...gallery]
   isAvailable: string;
-  manufacturer: string | null;
-  origin:       string | null;
-  ray:          string | null;
+  manufacturerId: string | null;
+  originId:       string | null;
+  rayId:          string | null;
+  aboutFlower:       string | null;
+  growerDescription: string | null;
+  defaultImageIndex: number;
+  // these are just for display, not sent back:
+  manufacturer?: string | null;
+  origin?:       string | null;
+  ray?:          string | null;
 };
 
 type Form = {
@@ -40,46 +45,38 @@ type Form = {
   cbd: number;
   genetics: string;
   isAvailable: boolean;
-  manufacturer: string;
-  origin: string;
-  ray: string;
+  manufacturerId: string;
+  originId:       string;
+  rayId:          string;
 };
 
 const defaultForm: Form = {
-  name: "", price: 0, thc: 0, cbd: 0,
+  name: "",
+  price: 0,
+  thc: 0,
+  cbd: 0,
   genetics: "Indica",
   isAvailable: false,
-  manufacturer: "",
-  origin:       "",
-  ray:          ""
-};
-
-type GalleryItem = {
-  id: string;
-  src: string;
-  file?: File;
-  existingFilename?: string;
+  manufacturerId: "",
+  originId:       "",
+  rayId:          "",
 };
 
 export default function AdminProductsContent() {
-  // ── STATE ────────────────────────────────────────────────────────────────
-  const [products, setProducts]   = useState<Product[]>([]);
-  const [effects, setEffects]     = useState<Lookup[]>([]);
-  const [terpenes, setTerpenes]   = useState<Lookup[]>([]);
-  const [tastes, setTastes]       = useState<Lookup[]>([]);
-  const [prodEff, setProdEff]     = useState<JT[]>([]);
-  const [prodTerp, setProdTerp]   = useState<JT[]>([]);
-  const [prodTaste, setProdTaste] = useState<JT[]>([]);
-
-  const [manufacturers, setManufacturers] = useState<Lookup[]>([]);
-  const [origins,       setOrigins]       = useState<Lookup[]>([]);
-  const [rays,          setRays]          = useState<Lookup[]>([]);
+  // fetched data
+  const [products,   setProducts]   = useState<Product[]>([]);
+  const [effects,    setEffects]    = useState<Lookup[]>([]);
+  const [terpenes,   setTerpenes]   = useState<Lookup[]>([]);
+  const [tastes,     setTastes]     = useState<Lookup[]>([]);
+  const [prodEff,    setProdEff]    = useState<JT[]>([]);
+  const [prodTerp,   setProdTerp]   = useState<JT[]>([]);
+  const [prodTaste,  setProdTaste]  = useState<JT[]>([]);
 
   // modal + form
-  const [open, setOpen]         = useState(false);
-  const [mode, setMode]         = useState<"add"|"edit">("add");
-  const [selected, setSelected] = useState<Product|null>(null);
-  const [form, setForm]         = useState<Form>(defaultForm);
+  const [open,       setOpen]       = useState(false);
+  const [mode,       setMode]       = useState<"add"|"edit">("add");
+  const [selected,   setSelected]   = useState<Product|null>(null);
+  const [form,       setForm]       = useState<Form>(defaultForm);
 
   // profile image
   const [existingProfile, setExistingProfile] = useState<string|null>(null);
@@ -87,48 +84,38 @@ export default function AdminProductsContent() {
   const [profileFile,     setProfileFile]     = useState<File|null>(null);
   const [profilePreview,  setProfilePreview]  = useState<string|null>(null);
 
-  // gallery
-  const [galleryItems, setGalleryItems]   = useState<GalleryItem[]>([]);
-  const [removeGallery, setRemoveGallery] = useState<string[]>([]);
+  // gallery images
+  const [galleryItems,   setGalleryItems]   = useState<{
+    id: string; src: string; file?: File; existingFilename?: string;
+  }[]>([]);
+  const [removeGallery,  setRemoveGallery]  = useState<string[]>([]);
 
-  // tags
-  const [selEff,   setSelEff]   = useState<string[]>([]);
-  const [selTerp,  setSelTerp]  = useState<string[]>([]);
-  const [selTaste, setSelTaste] = useState<string[]>([]);
+  // multi-select tags
+  const [selEff,    setSelEff]    = useState<string[]>([]);
+  const [selTerp,   setSelTerp]   = useState<string[]>([]);
+  const [selTaste,  setSelTaste]  = useState<string[]>([]);
 
   const modalRef = useRef<HTMLDivElement>(null);
   const API_URL  = "https://fuego-ombm.onrender.com";
   const headers  = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
-  // ── INITIAL LOAD ─────────────────────────────────────────────────────────
   useEffect(() => {
     fetchProducts();
     fetchEffects();
     fetchTerpenes();
     fetchTastes();
     fetchJunctions();
-    fetchLookups();
   }, []);
 
-  // ── FETCHERS ────────────────────────────────────────────────────────────
   async function fetchProducts() {
     try {
       const res = await apiClient.get("/products", {
         params: { page: 1, pageSize: 50 },
         headers,
       });
-      const list: Product[] = Array.isArray(res.data.products)
-        ? res.data.products
-        : Array.isArray(res.data)
-          ? res.data
-          : [];
-      setProducts(list.map(p=>({
-        ...p,
-        imageUrl: Array.isArray(p.imageUrl) ? p.imageUrl : []
-      })));
+      setProducts(Array.isArray(res.data.products) ? res.data.products : []);
     } catch (err) {
-      console.error("fetchProducts error", err);
-      setProducts([]);
+      console.error("fetchProducts error:", err);
     }
   }
   async function fetchEffects()   { setEffects((await apiClient.get("/effects",{headers})).data); }
@@ -145,20 +132,6 @@ export default function AdminProductsContent() {
     setProdTaste(pu.data);
   }
 
-  // ── LOOKUPS ──────────────────────────────────────────────────────────────
-  async function fetchLookups() {
-    try {
-      const res = await apiClient.get("/api/product-filters", { headers });
-      setManufacturers(res.data.manufacturers.map((m:any)=>({ id:m.id, title:m.name })));
-      setOrigins      (res.data.origins      .map((o:any)=>({ id:o.id, title:o.name })));
-      setRays         (res.data.rays         .map((r:any)=>({ id:r.id, title:r.name })));
-    } catch (err) {
-      console.error("fetchLookups error", err);
-      setManufacturers([]); setOrigins([]); setRays([]);
-    }
-  }
-
-  // ── MODAL CONTROL ───────────────────────────────────────────────────────
   const openModal = (prod?: Product) => {
     if (prod) {
       setMode("edit");
@@ -166,27 +139,25 @@ export default function AdminProductsContent() {
       setForm({
         name: prod.name,
         price: prod.price,
-        thc: prod.thc,
-        cbd: prod.cbd,
+        thc:   prod.thc,
+        cbd:   prod.cbd,
         genetics: prod.genetics,
-        isAvailable: prod.isAvailable==="Available",
-        manufacturer: prod.manufacturer||"",
-        origin:       prod.origin      ||"",
-        ray:          prod.ray         ||"",
+        isAvailable: prod.isAvailable === "Available",
+        manufacturerId: prod.manufacturerId || "",
+        originId:       prod.originId       || "",
+        rayId:          prod.rayId          || "",
       });
 
-      // images
+      // profile
       const [profile, ...gallery] = prod.imageUrl;
-      setExistingProfile(profile||null);
+      setExistingProfile(profile || null);
       setRemoveProfile(false);
       setProfileFile(null);
-      setProfilePreview(
-        profile
-          ? `${API_URL}/images/Products/${profile}`
-          : null
-      );
+      setProfilePreview(profile ? `${API_URL}/images/Products/${profile}` : null);
+
+      // gallery
       setGalleryItems(
-        gallery.map(fn=>({
+        gallery.map(fn => ({
           id: fn,
           src: `${API_URL}/images/Products/${fn}`,
           existingFilename: fn
@@ -214,17 +185,19 @@ export default function AdminProductsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // ── FORM INPUT ─────────────────────────────────────────────────────────
   function onChangeForm(e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) {
-    const { name, value, type, checked } = (e.target as any);
-    setForm(f=>({ ...f, [name]: type==="checkbox" ? checked : value }));
+    const { name, value, type, checked } = e.target as any;
+    setForm(f => ({
+      ...f,
+      [name]: type === "checkbox" ? checked : value
+    }));
   }
 
-  // ── PROFILE IMAGE ──────────────────────────────────────────────────────
+  // PROFILE handlers
   function onProfileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]||null;
+    const file = e.target.files?.[0] || null;
     setProfileFile(file);
-    setProfilePreview(file?URL.createObjectURL(file):null);
+    setProfilePreview(file ? URL.createObjectURL(file) : null);
     if (existingProfile) setRemoveProfile(true);
   }
   function removeProfileImage() {
@@ -234,13 +207,13 @@ export default function AdminProductsContent() {
     setExistingProfile(null);
   }
 
-  // ── GALLERY HANDLERS ───────────────────────────────────────────────────
+  // GALLERY handlers
   function handleGallery(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
     const arr = Array.from(e.target.files);
-    setGalleryItems(prev=>[
+    setGalleryItems(prev => [
       ...prev,
-      ...arr.map(file=>({
+      ...arr.map(file => ({
         id: URL.createObjectURL(file),
         src: URL.createObjectURL(file),
         file
@@ -249,84 +222,84 @@ export default function AdminProductsContent() {
     e.target.value = "";
   }
   function removeGalleryItem(i: number) {
-    setGalleryItems(prev=>{
+    setGalleryItems(prev => {
       const item = prev[i];
-      if (item.existingFilename) setRemoveGallery(r=>[...r,item.existingFilename!]);
-      const c=[...prev]; c.splice(i,1);
+      if (item.existingFilename) setRemoveGallery(r => [...r, item.existingFilename!]);
+      const c = [...prev]; c.splice(i, 1);
       return c;
     });
   }
   function onDragEnd(result: DropResult) {
     if (!result.destination) return;
     const a = Array.from(galleryItems);
-    const [m] = a.splice(result.source.index,1);
-    a.splice(result.destination.index,0,m);
+    const [m] = a.splice(result.source.index, 1);
+    a.splice(result.destination.index, 0, m);
     setGalleryItems(a);
   }
 
-  // ── MULTI-SELECT ────────────────────────────────────────────────────────
+  // MULTI-SELECT helpers
   function onMultiAdd(
     e: React.ChangeEvent<HTMLSelectElement>,
     setter: React.Dispatch<React.SetStateAction<string[]>>,
     existing: string[]
   ) {
-    const v=e.target.value;
-    if(!v||existing.includes(v))return;
-    setter([...existing,v]);
-    e.target.value="";
+    const v = e.target.value;
+    if (!v || existing.includes(v)) return;
+    setter([...existing, v]);
+    e.target.value = "";
   }
   function removeTag(id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) {
-    setter(prev=>prev.filter(x=>x!==id));
+    setter(prev => prev.filter(x => x !== id));
   }
 
-  // ── SUBMIT ──────────────────────────────────────────────────────────────
+  // SUBMIT create/update
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const fd = new FormData();
 
-    // BASIC
-    fd.append("name",           form.name);
-    fd.append("price",          String(form.price));
-    fd.append("thc",            String(form.thc));
-    fd.append("cbd",            String(form.cbd));
-    fd.append("genetics",       form.genetics);
-    fd.append("isAvailable",    form.isAvailable?"1":"0");
-    fd.append("manufacturer",   form.manufacturer);
-    fd.append("origin",         form.origin);
-    fd.append("ray",            form.ray);
-    fd.append("rating",         "0");
+    // BASIC FIELDS
+    fd.append("name",        form.name);
+    fd.append("price",       String(form.price));
+    fd.append("thc",         String(form.thc));
+    fd.append("cbd",         String(form.cbd));
+    fd.append("genetics",    form.genetics);
+    fd.append("isAvailable", form.isAvailable ? "Available" : "Un-Available");
+    // ── SEND THE IDS the controller expects ─────────────────────────────────
+    fd.append("manufacturerId", form.manufacturerId);
+    fd.append("originId",       form.originId);
+    fd.append("rayId",          form.rayId);
+    // ───────────────────────────────────────────────────────────────────────────
 
     // REMOVALS
     if (removeProfile && existingProfile) fd.append("removeImages", existingProfile);
-    removeGallery.forEach(fn=>fd.append("removeImages",fn));
+    removeGallery.forEach(fn => fd.append("removeImages", fn));
 
     // NEW FILES
     if (profileFile) fd.append("images", profileFile);
-    galleryItems.forEach(item=>{ if(item.file) fd.append("images", item.file!); });
+    galleryItems.forEach(item => {
+      if (item.file) fd.append("images", item.file!);
+    });
 
     // IMAGE ORDER
     const order: string[] = [];
-    if (profileFile) order.push("__NEW__");
+    if (profileFile)         order.push("__NEW__");
     else if (existingProfile) order.push(existingProfile);
-    galleryItems.forEach(item=>{
-      if (item.file) order.push("__NEW__");
+    galleryItems.forEach(item => {
+      if (item.file)           order.push("__NEW__");
       else if (item.existingFilename) order.push(item.existingFilename);
     });
     fd.append("imageOrder", JSON.stringify(order));
 
-    // TAGS
-    selEff.forEach(id=>fd.append("effectFilter",id));
-    selTerp.forEach(id=>fd.append("terpeneFilter",id));
-    selTaste.forEach(id=>fd.append("tasteFilter",id));
+    // TAG JUNCTIONS
+    selEff.forEach(id  => fd.append("effectFilter",  id));
+    selTerp.forEach(id => fd.append("terpeneFilter", id));
+    selTaste.forEach(id=> fd.append("tasteFilter",   id));
 
-    if (mode==="add") {
-      await apiClient.post("/Products", fd, {
-        headers:{ ...headers, "Content-Type":"multipart/form-data" }
-      });
+    const cfg = { headers: { ...headers, "Content-Type": "multipart/form-data" } };
+    if (mode === "add") {
+      await apiClient.post("/Products", fd, cfg);
     } else if (selected) {
-      await apiClient.put(`/Products/${selected.id}`, fd, {
-        headers:{ ...headers, "Content-Type":"multipart/form-data" }
-      });
+      await apiClient.put(`/Products/${selected.id}`, fd, cfg);
     }
 
     await fetchProducts();
@@ -334,17 +307,18 @@ export default function AdminProductsContent() {
     closeModal();
   }
 
-  // ── DELETE ───────────────────────────────────────────────────────────────
+  // DELETE
   async function onDelete(id: string) {
     if (!confirm("Delete this product?")) return;
     try {
       await apiClient.delete(`/Products/${id}`, { headers });
       await fetchProducts();
     } catch (err) {
-      console.error("deleteProduct error", err);
+      console.error("deleteProduct error:", err);
       alert("Löschen fehlgeschlagen");
     }
   }
+
 
   // ── RENDER ───────────────────────────────────────────────────────────────
   return (
