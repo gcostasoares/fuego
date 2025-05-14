@@ -179,7 +179,7 @@ export default function AdminProductsContent() {
   // ── FORM HANDLERS ────────────────────────────────────────────────────────
   function onChangeForm(e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) {
     const { name, value, type, checked } = e.target as any;
-    setForm(f => ({ …f, [name]: type==="checkbox" ? checked : value }));
+    setForm(f => ({ ...f, [name]: type === "checkbox" ? checked : value }));
   }
 
   // (…and all the other handlers exactly as you already have them…)
