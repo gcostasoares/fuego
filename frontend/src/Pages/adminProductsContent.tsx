@@ -291,9 +291,9 @@ export default function AdminProductsContent() {
     fd.append("cbd",            String(form.cbd));
     fd.append("genetics",       form.genetics);
     fd.append("isAvailable",    form.isAvailable?"1":"0");
-    fd.append("manufacturerId", form.manufacturer);
-    fd.append("originId",       form.origin);
-    fd.append("rayId",          form.ray);
+    fd.append("manufacturer",   form.manufacturer);
+    fd.append("origin",         form.origin);
+    fd.append("ray",            form.ray);
     fd.append("rating",         "0");
 
     // REMOVALS
