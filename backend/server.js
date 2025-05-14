@@ -599,6 +599,7 @@ app.get("/growequipments/:id", async (req, res) => {
 
 
 // in server.js (or your filters controller)
+// in server.js (or wherever you define your routes)
 app.get("/api/product-filters", async (req, res) => {
   try {
     const [
@@ -611,14 +612,15 @@ app.get("/api/product-filters", async (req, res) => {
       pharmacies,
       rays
     ] = await Promise.all([
-      pool.request().query("SELECT Id AS id, Title AS name FROM tblTerpenes"),
-      pool.request().query("SELECT Id AS id, Title AS name FROM tblEffects"),
-      pool.request().query("SELECT Id AS id, Title AS name FROM tblStrains"),
-      pool.request().query("SELECT Id AS id, Name  AS name FROM tblManufacturers"),
-      pool.request().query("SELECT Id AS id, Name  AS name FROM tblOrigins"),
-      pool.request().query("SELECT Id AS id, Title AS name FROM tblTastes"),
-      pool.request().query("SELECT Id AS id, Name  AS name FROM tblPharmacies"),
-      pool.request().query("SELECT Id AS id, Name  AS name FROM tblRays")
+      // COALESCE will pick Name if it exists, otherwise Title
+      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblTerpenes"),
+      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblEffects"),
+      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblStrains"),
+      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblManufacturers"),
+      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblOrigins"),
+      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblTastes"),
+      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblPharmacies"),
+      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblRays")
     ]);
 
     res.json({
@@ -633,9 +635,13 @@ app.get("/api/product-filters", async (req, res) => {
     });
   } catch (error) {
     console.error("GET /api/product-filters error:", error);
-    res.status(500).json({ error: "Internal Server Error", details: error.message });
+    res.status(500).json({
+      error: "Internal Server Error",
+      details: error.message
+    });
   }
 });
+
 
 
 // Home Data Endpoint
