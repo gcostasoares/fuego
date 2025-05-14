@@ -1,4 +1,3 @@
-// src/components/AdminProductsContent.tsx
 
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
@@ -10,7 +9,7 @@ import {
   DropResult,
 } from "react-beautiful-dnd";
 
-// format list prices as “9,64”
+// format prices as “9,64”
 const priceFormatter = new Intl.NumberFormat("de-DE", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
@@ -62,7 +61,7 @@ type GalleryItem = {
 };
 
 export default function AdminProductsContent() {
-  // DATA
+  // ── STATE ────────────────────────────────────────────────────────────────
   const [products, setProducts]   = useState<Product[]>([]);
   const [effects, setEffects]     = useState<Lookup[]>([]);
   const [terpenes, setTerpenes]   = useState<Lookup[]>([]);
@@ -71,28 +70,28 @@ export default function AdminProductsContent() {
   const [prodTerp, setProdTerp]   = useState<JT[]>([]);
   const [prodTaste, setProdTaste] = useState<JT[]>([]);
 
-  // LOOKUPS
+  // lookups for selects
   const [manufacturers, setManufacturers] = useState<Lookup[]>([]);
   const [origins,       setOrigins]       = useState<Lookup[]>([]);
   const [rays,          setRays]          = useState<Lookup[]>([]);
 
-  // MODAL + FORM
+  // modal + form
   const [open, setOpen]         = useState(false);
   const [mode, setMode]         = useState<"add"|"edit">("add");
   const [selected, setSelected] = useState<Product|null>(null);
   const [form, setForm]         = useState<Form>(defaultForm);
 
-  // PROFILE IMAGE
+  // profile image
   const [existingProfile, setExistingProfile] = useState<string|null>(null);
   const [removeProfile, setRemoveProfile]     = useState(false);
   const [profileFile, setProfileFile]         = useState<File|null>(null);
   const [profilePreview, setProfilePreview]   = useState<string|null>(null);
 
-  // GALLERY IMAGES
+  // gallery images
   const [galleryItems, setGalleryItems]   = useState<GalleryItem[]>([]);
   const [removeGallery, setRemoveGallery] = useState<string[]>([]);
 
-  // MULTI-SELECT TAGS
+  // multi-select tags
   const [selEff, setSelEff]     = useState<string[]>([]);
   const [selTerp, setSelTerp]   = useState<string[]>([]);
   const [selTaste, setSelTaste] = useState<string[]>([]);
@@ -101,13 +100,14 @@ export default function AdminProductsContent() {
   const API_URL  = "https://fuego-ombm.onrender.com";
   const headers  = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
+  // ── INITIAL LOAD ─────────────────────────────────────────────────────────
   useEffect(() => {
     fetchProducts();
     fetchEffects();
     fetchTerpenes();
     fetchTastes();
     fetchJunctions();
-    fetchLookups();
+    fetchLookups();   // <-- new combined lookup call
   }, []);
 
   // ── FETCHERS ────────────────────────────────────────────────────────────
@@ -144,15 +144,21 @@ export default function AdminProductsContent() {
     setProdTerp(pt.data);
     setProdTaste(pu.data);
   }
+
+  // ── COMBINED LOOKUPS ─────────────────────────────────────────────────────
+  // grabs manufacturers, origins and rays all at once
   async function fetchLookups() {
-    const [mRes, oRes, rRes] = await Promise.all([
-      apiClient.get<Lookup[]>("/manufacturers", { headers }),
-      apiClient.get<Lookup[]>("/origins",       { headers }),
-      apiClient.get<Lookup[]>("/rays",          { headers }),
-    ]);
-    setManufacturers(mRes.data);
-    setOrigins(oRes.data);
-    setRays(rRes.data);
+    try {
+      const res = await apiClient.get("/api/product-filters", { headers });
+      setManufacturers(res.data.manufacturers);
+      setOrigins      (res.data.origins);
+      setRays         (res.data.rays);
+    } catch (err) {
+      console.error("fetchLookups error", err);
+      setManufacturers([]);
+      setOrigins([]);
+      setRays([]);
+    }
   }
 
   // ── OPEN / CLOSE MODAL ──────────────────────────────────────────────────
@@ -172,16 +178,18 @@ export default function AdminProductsContent() {
         ray:          prod.ray          || ""
       });
 
-      // profile
+      // profile + gallery setup
       const [profile, ...gallery] = prod.imageUrl;
       setExistingProfile(profile||null);
       setRemoveProfile(false);
       setProfileFile(null);
-      setProfilePreview(profile ? `${API_URL}/images/Products/${profile}` : null);
+      setProfilePreview(profile
+        ? `${API_URL}/images/Products/${profile}`
+        : null
+      );
 
-      // gallery
       setGalleryItems(
-        gallery.map(fn => ({
+        gallery.map(fn=>({
           id: fn,
           src: `${API_URL}/images/Products/${fn}`,
           existingFilename: fn
@@ -219,7 +227,7 @@ export default function AdminProductsContent() {
   function onProfileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]||null;
     setProfileFile(file);
-    setProfilePreview(file?URL.createObjectURL(file):null);
+    setProfilePreview(file ? URL.createObjectURL(file) : null);
     if (existingProfile) setRemoveProfile(true);
   }
   function removeProfileImage() {
@@ -259,16 +267,16 @@ export default function AdminProductsContent() {
     setGalleryItems(a);
   }
 
-  // ── MULTI-SELECT TAG HELPERS ────────────────────────────────────────────
+  // ── MULTI-SELECT HELPERS ────────────────────────────────────────────────
   function onMultiAdd(
     e: React.ChangeEvent<HTMLSelectElement>,
     setter: React.Dispatch<React.SetStateAction<string[]>>,
     existing: string[]
   ) {
-    const v=e.target.value;
-    if(!v||existing.includes(v))return;
-    setter([...existing,v]);
-    e.target.value="";
+    const v = e.target.value;
+    if (!v || existing.includes(v)) return;
+    setter([...existing, v]);
+    e.target.value = "";
   }
   function removeTag(id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) {
     setter(prev=>prev.filter(x=>x!==id));
@@ -279,21 +287,21 @@ export default function AdminProductsContent() {
     e.preventDefault();
     const fd = new FormData();
 
-    // BASIC FIELDS
-    fd.append("name", form.name);
-    fd.append("price", String(form.price));
-    fd.append("thc",   String(form.thc));
-    fd.append("cbd",   String(form.cbd));
-    fd.append("genetics", form.genetics);
-    fd.append("isAvailable", form.isAvailable ? "1" : "0");
+    // BASIC
+    fd.append("name",         form.name);
+    fd.append("price",        String(form.price));
+    fd.append("thc",          String(form.thc));
+    fd.append("cbd",          String(form.cbd));
+    fd.append("genetics",     form.genetics);
+    fd.append("isAvailable",  form.isAvailable ? "1" : "0");
     fd.append("manufacturerId", form.manufacturer);
     fd.append("originId",       form.origin);
     fd.append("rayId",          form.ray);
-    fd.append("rating","0");
+    fd.append("rating",       "0");
 
     // REMOVALS
     if (removeProfile && existingProfile) fd.append("removeImages", existingProfile);
-    removeGallery.forEach(fn=>fd.append("removeImages",fn));
+    removeGallery.forEach(fn=>fd.append("removeImages", fn));
 
     // NEW FILES
     if (profileFile) fd.append("images", profileFile);
@@ -311,19 +319,19 @@ export default function AdminProductsContent() {
     });
     fd.append("imageOrder", JSON.stringify(order));
 
-    // TAG JUNCTIONS
-    selEff.forEach(id=>fd.append("effectFilter",id));
-    selTerp.forEach(id=>fd.append("terpeneFilter",id));
-    selTaste.forEach(id=>fd.append("tasteFilter",id));
+    // TAGS
+    selEff.forEach(id=>fd.append("effectFilter", id));
+    selTerp.forEach(id=>fd.append("terpeneFilter", id));
+    selTaste.forEach(id=>fd.append("tasteFilter", id));
 
-    // API call
+    // API CALL
     if (mode==="add") {
-      await apiClient.post("/Products", fd,{
-        headers:{ ...headers, "Content-Type":"multipart/form-data" }
+      await apiClient.post("/Products", fd, {
+        headers: { ...headers, "Content-Type": "multipart/form-data" }
       });
     } else if (selected) {
-      await apiClient.put(`/Products/${selected.id}`, fd,{
-        headers:{ ...headers, "Content-Type":"multipart/form-data" }
+      await apiClient.put(`/Products/${selected.id}`, fd, {
+        headers: { ...headers, "Content-Type": "multipart/form-data" }
       });
     }
 
