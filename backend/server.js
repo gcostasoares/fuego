@@ -612,16 +612,15 @@ app.get("/api/product-filters", async (req, res) => {
       pharmacies,
       rays
     ] = await Promise.all([
-      // COALESCE will pick Name if it exists, otherwise Title
-      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblTerpenes"),
-      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblEffects"),
-      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblStrains"),
-      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblManufacturers"),
-      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblOrigins"),
-      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblTastes"),
-      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblPharmacies"),
-      pool.request().query("SELECT Id AS id, COALESCE(Name, Title) AS name FROM tblRays")
-    ]);
+      pool.request().query(`SELECT Id AS id, Title AS name FROM tblTerpenes ORDER BY Title`),
+      pool.request().query(`SELECT Id AS id, Title AS name FROM tblEffects ORDER BY Title`),
+      pool.request().query(`SELECT Id AS id, Title AS name FROM tblTastes ORDER BY Title`),
+      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblStrains ORDER BY Name`),
+      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblManufacturers ORDER BY Name`),
+      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblOrigins ORDER BY Name`),
+      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblPharmacies ORDER BY Name`),
+      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblRays ORDER BY Name`)
+   ]);
 
     res.json({
       terpenes:      terpenes.recordset,
