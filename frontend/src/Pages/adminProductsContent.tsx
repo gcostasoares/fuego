@@ -14,13 +14,7 @@ const priceFormatter = new Intl.NumberFormat("de-DE", {
   maximumFractionDigits: 2,
 });
 
-// static options from your DB
-const geneticsOptions     = ["Indica", "Hybrid", "Sativa"];
-const manufacturerOptions = ["Cantourage", "Demecan", "Avaay"];
-const originOptions       = ["Kanada", "Uruguay", "Dänemark", "Israel"];
-const rayOptions          = ["Unbestrahlt", "Bestrahlt"];
-
-type Lookup = { id: string; title: string };
+type Lookup = { id: string; name: string };
 type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
 type Product = {
   id: string;
@@ -42,68 +36,67 @@ type Form = {
   cbd: number;
   genetics: string;
   isAvailable: boolean;
-  manufacturer: string;
-  origin: string;
-  ray: string;
+  manufacturerId: string;
+  originId: string;
+  rayId: string;
 };
 const defaultForm: Form = {
   name: "",
   price: 0,
   thc: 0,
   cbd: 0,
-  genetics: geneticsOptions[0],
+  genetics: "",
   isAvailable: false,
-  manufacturer: "",
-  origin: "",
-  ray: "",
+  manufacturerId: "",
+  originId: "",
+  rayId: "",
 };
 type GalleryItem = {
   id: string;
   src: string;
-  file?: File;               // newly added
-  existingFilename?: string; // from server
+  file?: File;
+  existingFilename?: string;
 };
 
 export default function AdminProductsContent() {
-  // data
   const [products, setProducts]   = useState<Product[]>([]);
+  const [manufacturers, setManufacturers] = useState<Lookup[]>([]);
+  const [origins, setOrigins]     = useState<Lookup[]>([]);
+  const [rays, setRays]           = useState<Lookup[]>([]);
+  const [strains, setStrains]     = useState<Lookup[]>([]);
+
   const [effects, setEffects]     = useState<Lookup[]>([]);
   const [terpenes, setTerpenes]   = useState<Lookup[]>([]);
   const [tastes, setTastes]       = useState<Lookup[]>([]);
+
   const [prodEff, setProdEff]     = useState<JT[]>([]);
   const [prodTerp, setProdTerp]   = useState<JT[]>([]);
   const [prodTaste, setProdTaste] = useState<JT[]>([]);
 
-  // modal + form
   const [open, setOpen]         = useState(false);
   const [mode, setMode]         = useState<"add"|"edit">("add");
   const [selected, setSelected] = useState<Product|null>(null);
   const [form, setForm]         = useState<Form>(defaultForm);
 
-  // profile image
   const [existingProfile, setExistingProfile] = useState<string|null>(null);
   const [removeProfile, setRemoveProfile]     = useState(false);
   const [profileFile, setProfileFile]         = useState<File|null>(null);
   const [profilePreview, setProfilePreview]   = useState<string|null>(null);
 
-  // gallery images
   const [galleryItems, setGalleryItems]   = useState<GalleryItem[]>([]);
   const [removeGallery, setRemoveGallery] = useState<string[]>([]);
 
-  // multi-select
   const [selEff, setSelEff]     = useState<string[]>([]);
   const [selTerp, setSelTerp]   = useState<string[]>([]);
   const [selTaste, setSelTaste] = useState<string[]>([]);
 
   const modalRef = useRef<HTMLDivElement>(null);
-  const API_URL = "https://fuego-ombm.onrender.com";
+  const API_URL  = "https://fuego-ombm.onrender.com";
   const headers  = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
   useEffect(() => {
     fetchProducts();
-    fetchEffects();
-    fetchTerpenes();
-    fetchTastes();
+    fetchProductFilters();
     fetchJunctions();
   }, []);
 
@@ -120,22 +113,39 @@ export default function AdminProductsContent() {
           : [];
       setProducts(list);
     } catch (err) {
-      console.error("[AdminProducts] fetchProducts error:", err);
+      console.error("fetchProducts error:", err);
       setProducts([]);
     }
   }
-  async function fetchEffects()   { setEffects((await apiClient.get("/effects",    { headers })).data); }
-  async function fetchTerpenes()  { setTerpenes((await apiClient.get("/terpenes",  { headers })).data); }
-  async function fetchTastes()    { setTastes((await apiClient.get("/tastes",    { headers })).data); }
+
+  async function fetchProductFilters() {
+    try {
+      const res = await apiClient.get("/product-filters", { headers });
+      setManufacturers(res.data.manufacturers);
+      setOrigins(res.data.origins);
+      setRays(res.data.rays);
+      setStrains(res.data.strains);
+      setEffects(res.data.effects);
+      setTerpenes(res.data.terpenes);
+      setTastes(res.data.tastes);
+    } catch (err) {
+      console.error("fetchProductFilters error:", err);
+    }
+  }
+
   async function fetchJunctions() {
-    const [pe, pt, pu] = await Promise.all([
-      apiClient.get("/producteffects",  { headers }),
-      apiClient.get("/productterpenes", { headers }),
-      apiClient.get("/producttastes",   { headers }),
-    ]);
-    setProdEff(pe.data);
-    setProdTerp(pt.data);
-    setProdTaste(pu.data);
+    try {
+      const [pe, pt, pu] = await Promise.all([
+        apiClient.get("/producteffects",  { headers }),
+        apiClient.get("/productterpenes", { headers }),
+        apiClient.get("/producttastes",   { headers }),
+      ]);
+      setProdEff(pe.data);
+      setProdTerp(pt.data);
+      setProdTaste(pu.data);
+    } catch (err) {
+      console.error("fetchJunctions error:", err);
+    }
   }
 
   const openModal = (prod?: Product) => {
@@ -144,24 +154,22 @@ export default function AdminProductsContent() {
       setSelected(prod);
       setForm({
         name: prod.name,
-        price: +Number(prod.price).toFixed(2),
-        thc:   +prod.thc.toFixed(2),
-        cbd:   +prod.cbd.toFixed(2),
+        price: +prod.price.toFixed(2),
+        thc:   prod.thc,
+        cbd:   prod.cbd,
         genetics: prod.genetics,
         isAvailable: prod.isAvailable === "Available",
-        manufacturer: prod.manufacturer || "",
-        origin: prod.origin || "",
-        ray: prod.ray || "",
+        manufacturerId: prod.manufacturer || "",
+        originId: prod.origin || "",
+        rayId: prod.ray || "",
       });
 
-      // profile
       const [profile, ...gallery] = prod.imageUrl;
       setExistingProfile(profile || null);
       setRemoveProfile(false);
       setProfileFile(null);
       setProfilePreview(profile ? `${API_URL}/images/Products/${profile}` : null);
 
-      // gallery
       setGalleryItems(
         gallery.map(fn => ({
           id: fn,
@@ -171,10 +179,9 @@ export default function AdminProductsContent() {
       );
       setRemoveGallery([]);
 
-      // tags
-      setSelEff  (prodEff .filter(r=>r.productId===prod.id).map(r=>r.effectId!));
-      setSelTerp (prodTerp.filter(r=>r.productId===prod.id).map(r=>r.terpeneId!));
-      setSelTaste(prodTaste.filter(r=>r.productId===prod.id).map(r=>r.tasteId!));
+      setSelEff  (prodEff .filter(r => r.productId === prod.id).map(r => r.effectId!));
+      setSelTerp (prodTerp.filter(r => r.productId === prod.id).map(r => r.terpeneId!));
+      setSelTaste(prodTaste.filter(r => r.productId === prod.id).map(r => r.tasteId!));
     } else {
       setMode("add");
       setSelected(null);
@@ -191,13 +198,14 @@ export default function AdminProductsContent() {
     }
     setOpen(true);
   };
+
   const closeModal = () => setOpen(false);
 
   function onChangeForm(e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) {
-    const { name, value, type, checked } = (e.target as any);
+    const { name, value, type, checked } = e.target as any;
     setForm(f => ({
       ...f,
-      [name]: type === "checkbox" ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
   }
 
@@ -207,6 +215,7 @@ export default function AdminProductsContent() {
     setProfilePreview(file ? URL.createObjectURL(file) : null);
     if (existingProfile) setRemoveProfile(true);
   }
+
   function removeProfileImage() {
     setProfileFile(null);
     setProfilePreview(null);
@@ -222,11 +231,12 @@ export default function AdminProductsContent() {
       ...arr.map(file => ({
         id: URL.createObjectURL(file),
         src: URL.createObjectURL(file),
-        file
+        file,
       }))
     ]);
     e.target.value = "";
   }
+
   function removeGalleryItem(i: number) {
     setGalleryItems(prev => {
       const item = prev[i];
@@ -236,6 +246,7 @@ export default function AdminProductsContent() {
       return c;
     });
   }
+
   function onDragEnd(result: DropResult) {
     if (!result.destination) return;
     const a = Array.from(galleryItems);
@@ -254,6 +265,7 @@ export default function AdminProductsContent() {
     setter([...existing, v]);
     e.target.value = "";
   }
+
   function removeTag(id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) {
     setter(prev => prev.filter(x => x !== id));
   }
@@ -262,29 +274,25 @@ export default function AdminProductsContent() {
     e.preventDefault();
     const fd = new FormData();
 
-    // BASIC FIELDS
     fd.append("name", form.name);
     fd.append("price", String(form.price));
-    fd.append("thc", String(form.thc));
-    fd.append("cbd", String(form.cbd));
+    fd.append("thc",   String(form.thc));
+    fd.append("cbd",   String(form.cbd));
     fd.append("genetics", form.genetics);
     fd.append("isAvailable", form.isAvailable ? "Available" : "Un-Available");
-    fd.append("manufacturerId", form.manufacturer);
-    fd.append("originId", form.origin);
-    fd.append("rayId", form.ray);
+    fd.append("manufacturerId", form.manufacturerId);
+    fd.append("originId", form.originId);
+    fd.append("rayId", form.rayId);
     fd.append("rating", "0");
 
-    // REMOVALS
     if (removeProfile && existingProfile) fd.append("removeImages", existingProfile);
     removeGallery.forEach(fn => fd.append("removeImages", fn));
 
-    // NEW FILES
     if (profileFile) fd.append("images", profileFile);
     galleryItems.forEach(item => {
       if (item.file) fd.append("images", item.file);
     });
 
-    // IMAGE ORDER
     const order: string[] = [];
     if (profileFile) order.push("__NEW__");
     else if (existingProfile) order.push(existingProfile);
@@ -294,7 +302,6 @@ export default function AdminProductsContent() {
     });
     fd.append("imageOrder", JSON.stringify(order));
 
-    // TAG JUNCTIONS
     selEff.forEach(id => fd.append("effectFilter", id));
     selTerp.forEach(id => fd.append("terpeneFilter", id));
     selTaste.forEach(id => fd.append("tasteFilter", id));
@@ -317,7 +324,7 @@ export default function AdminProductsContent() {
       await apiClient.delete(`/Products/${id}`, { headers });
       await fetchProducts();
     } catch (err) {
-      console.error("[AdminProducts] delete error:", err);
+      console.error("deleteProduct error:", err);
       alert("Löschen fehlgeschlagen");
     }
   }
