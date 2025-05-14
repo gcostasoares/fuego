@@ -612,14 +612,14 @@ app.get("/api/product-filters", async (req, res) => {
       pharmacies,
       rays
     ] = await Promise.all([
-      pool.request().query(`SELECT Id AS id, Title AS name FROM tblTerpenes ORDER BY Title`),
-      pool.request().query(`SELECT Id AS id, Title AS name FROM tblEffects ORDER BY Title`),
-      pool.request().query(`SELECT Id AS id, Title AS name FROM tblTastes ORDER BY Title`),
-      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblStrains ORDER BY Name`),
-      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblManufacturers ORDER BY Name`),
-      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblOrigins ORDER BY Name`),
-      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblPharmacies ORDER BY Name`),
-      pool.request().query(`SELECT Id AS id, Name  AS name FROM tblRays ORDER BY Name`)
+      pool.request().query("SELECT Id AS id, Title AS name FROM tblTerpenes"),
+      pool.request().query("SELECT Id AS id, Title AS name FROM tblEffects"),
+      pool.request().query("SELECT Id AS id, Name AS name FROM tblStrains"),
+      pool.request().query("SELECT Id AS id, Name AS name FROM tblManufacturers"),
+      pool.request().query("SELECT Id AS id, Name AS name FROM tblOrigins"),
+      pool.request().query("SELECT Id AS id, Title AS name FROM tblTastes"),
+      pool.request().query("SELECT Id AS id, Name AS name FROM tblPharmacies"),
+      pool.request().query("SELECT Id AS id, Name AS name FROM tblRays")
    ]);
 
     res.json({
