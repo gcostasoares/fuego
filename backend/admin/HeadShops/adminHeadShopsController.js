@@ -204,8 +204,8 @@ exports.updateHeadShop = async (req, res) => {
       .input("Price",      sql.Decimal(18,2),    priceVal)
       .input("StartDay",   sql.NVarChar,         startDay)
       .input("EndDay",     sql.NVarChar,         endDay)
-      .input("StartTime",  sql.VarChar(8),      `${startTime}:00`)
-      .input("EndTime",    sql.VarChar(8),      `${endTime}:00`)
+      .input("StartTime",  sql.VarChar(50),      `${startTime}:00`)
+      .input("EndTime",    sql.VarChar(50),      `${endTime}:00`)
       .input("IsVerified", sql.Bit,             verified);
 
     if (newImage) reqQ.input("ImagePath", sql.NVarChar, newImage);
