@@ -598,10 +598,11 @@ app.get("/growequipments/:id", async (req, res) => {
 });
 
 
+// in server.js (or your filters controller)
 app.get("/api/product-filters", async (req, res) => {
   try {
     const [
-      terpenes, 
+      terpenes,
       effects,
       strains,
       manufacturers,
@@ -610,33 +611,32 @@ app.get("/api/product-filters", async (req, res) => {
       pharmacies,
       rays
     ] = await Promise.all([
-      pool.request().query("SELECT Id AS id, Name AS name FROM tblTerpenes"),
-      pool.request().query("SELECT Id AS id, Name AS name FROM tblEffects"),
-      pool.request().query("SELECT Id AS id, Name AS name FROM tblStrains"),
-      pool.request().query("SELECT Id AS id, Name AS name FROM tblManufacturers"),
-      pool.request().query("SELECT Id AS id, Name AS name FROM tblOrigins"),
-      pool.request().query("SELECT Id AS id, Name AS name FROM tblTastes"),
-      pool.request().query("SELECT Id AS id, Name AS name FROM tblPharmacies"),
-      pool.request().query("SELECT Id AS id, Name AS name FROM tblRays")
+      pool.request().query("SELECT Id AS id, Title AS name FROM tblTerpenes"),
+      pool.request().query("SELECT Id AS id, Title AS name FROM tblEffects"),
+      pool.request().query("SELECT Id AS id, Title AS name FROM tblStrains"),
+      pool.request().query("SELECT Id AS id, Name  AS name FROM tblManufacturers"),
+      pool.request().query("SELECT Id AS id, Name  AS name FROM tblOrigins"),
+      pool.request().query("SELECT Id AS id, Title AS name FROM tblTastes"),
+      pool.request().query("SELECT Id AS id, Name  AS name FROM tblPharmacies"),
+      pool.request().query("SELECT Id AS id, Name  AS name FROM tblRays")
     ]);
 
     res.json({
-      terpenes: terpenes.recordset,
-      effects: effects.recordset,
-      strains: strains.recordset,
+      terpenes:      terpenes.recordset,
+      effects:       effects.recordset,
+      strains:       strains.recordset,
       manufacturers: manufacturers.recordset,
-      origins: origins.recordset,
-      tastes: tastes.recordset,
-      pharmacies: pharmacies.recordset,
-      rays: rays.recordset
+      origins:       origins.recordset,
+      tastes:        tastes.recordset,
+      pharmacies:    pharmacies.recordset,
+      rays:          rays.recordset
     });
   } catch (error) {
-    res.status(500).json({
-      error: "Internal Server Error",
-      details: error.message
-    });
+    console.error("GET /api/product-filters error:", error);
+    res.status(500).json({ error: "Internal Server Error", details: error.message });
   }
 });
+
 
 // Home Data Endpoint
 app.get("/api/home", async (req, res) => {
