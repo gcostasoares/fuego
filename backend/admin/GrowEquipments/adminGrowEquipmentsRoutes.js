@@ -1,3 +1,4 @@
+// admin/GrowEquipments/adminGrowEquipmentsRoutes.js
 const express = require("express");
 const multer  = require("multer");
 const path    = require("path");
@@ -6,25 +7,34 @@ const ctrl    = require("./adminGrowEquipmentsController");
 
 const router = express.Router();
 
-// files go to backend/public/images/GrowEquipments
 const storage = multer.diskStorage({
   destination: (req, file, cb) =>
     cb(null, path.join(__dirname, "../../public/images/GrowEquipments")),
   filename: (req, file, cb) =>
-    cb(null, uuidv4() + path.extname(file.originalname)),
+    cb(null, uuidv4() + path.extname(file.originalname))
 });
 const upload = multer({ storage });
 
-router.get(    "/",        ctrl.getAllGrowEquipments);
-router.get(    "/:id",     ctrl.getGrowEquipmentById);
-router.post(   "/", upload.fields([
-                  { name: "image" },
-                  { name: "cover" }
-                ]),           ctrl.createGrowEquipment);
-router.put(    "/:id", upload.fields([
-                  { name: "image" },
-                  { name: "cover" }
-                ]),           ctrl.updateGrowEquipment);
-router.delete( "/:id",     ctrl.deleteGrowEquipment);
+router.post(
+  "/",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "cover", maxCount: 1 }
+  ]),
+  ctrl.createGrowEquipment
+);
+
+router.put(
+  "/:id",
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "cover", maxCount: 1 }
+  ]),
+  ctrl.updateGrowEquipment
+);
+
+router.get(   "/",    ctrl.getAllGrowEquipments);
+router.get(   "/:id", ctrl.getGrowEquipmentById);
+router.delete("/:id", ctrl.deleteGrowEquipment);
 
 module.exports = router;
