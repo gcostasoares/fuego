@@ -1,16 +1,34 @@
-// src/admin/AdminProductsContent.tsx
+/* src/Pages/AdminProductsContent.tsx
+   ─────────────────────────────────────────────────────────────────────────────
+   Full component including:
+   • full-screen loader overlay
+   • “Neues Produkt hinzufügen” button text
+   • product list shows only the name
+   • editable AboutFlower & GrowerDescription
+*/
+
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
+import Loader from "@/components/ui/loader";
 import {
   DragDropContext,
   Droppable,
   Draggable,
   DropResult,
 } from "react-beautiful-dnd";
-import FullPageLoader from "@/components/ui/loader";
 
-/* ────────────────────────── types ────────────────────────── */
+/* ───────────── overlay wrapper ───────────── */
+function FullPageLoader() {
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center
+                    bg-white/70 backdrop-blur-sm pointer-events-none">
+      <Loader />
+    </div>
+  );
+}
+
+/* ───────────── types ───────────── */
 type Lookup = { id: string; title: string; name: string };
 type JT = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
 
@@ -26,6 +44,8 @@ type Product = {
   manufacturerId: string | null;
   originId: string | null;
   rayId: string | null;
+  aboutFlower: string | null;
+  growerDescription: string | null;
 };
 
 type Form = {
@@ -38,6 +58,8 @@ type Form = {
   manufacturerId: string;
   originId: string;
   rayId: string;
+  aboutFlower: string;
+  growerDescription: string;
 };
 
 type GalleryItem = {
@@ -47,7 +69,7 @@ type GalleryItem = {
   existingFilename?: string;
 };
 
-/* ───────────────────────── component ───────────────────────── */
+/* ───────────── component ───────────── */
 export default function AdminProductsContent() {
   /* ---------- state ---------- */
   const [loading,        setLoading]        = useState(false);
@@ -75,6 +97,8 @@ export default function AdminProductsContent() {
     manufacturerId: "",
     originId: "",
     rayId: "",
+    aboutFlower: "",
+    growerDescription: "",
   });
   const [existingProfile, setExistingProfile] = useState<string | null>(null);
   const [removeProfile,   setRemoveProfile]   = useState(false);
@@ -170,6 +194,8 @@ export default function AdminProductsContent() {
         manufacturerId: prod.manufacturerId || "",
         originId: prod.originId || "",
         rayId: prod.rayId || "",
+        aboutFlower: prod.aboutFlower || "",
+        growerDescription: prod.growerDescription || "",
       });
 
       const [profile, ...gallery] = prod.imageUrl;
@@ -203,6 +229,8 @@ export default function AdminProductsContent() {
         manufacturerId: "",
         originId: "",
         rayId: "",
+        aboutFlower: "",
+        growerDescription: "",
       });
       setExistingProfile(null);
       setRemoveProfile(false);
@@ -222,10 +250,10 @@ export default function AdminProductsContent() {
   }
 
   /* ---------- form helpers ---------- */
-  function onChangeForm(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+  const onChangeForm = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type, checked } = e.target as any;
     setForm(f => ({ ...f, [name]: type === "checkbox" ? checked : value }));
-  }
+  };
 
   function onProfileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] || null;
@@ -303,6 +331,8 @@ export default function AdminProductsContent() {
     fd.append("manufacturerId", form.manufacturerId);
     fd.append("originId",       form.originId);
     fd.append("rayId",          form.rayId);
+    fd.append("aboutFlower",    form.aboutFlower);
+    fd.append("growerDescription", form.growerDescription);
     fd.append("rating", "0");
 
     if (removeProfile && existingProfile) fd.append("removeImages", existingProfile);
@@ -312,10 +342,10 @@ export default function AdminProductsContent() {
     galleryItems.forEach(item => item.file && fd.append("images", item.file));
 
     const order: string[] = [];
-    if (profileFile)        order.push("__NEW__");
-    else if (existingProfile) order.push(existingProfile);
+    if (profileFile)              order.push("__NEW__");
+    else if (existingProfile)     order.push(existingProfile);
     galleryItems.forEach(item => {
-      if (item.file)            order.push("__NEW__");
+      if (item.file)              order.push("__NEW__");
       else if (item.existingFilename) order.push(item.existingFilename);
     });
     fd.append("imageOrder", JSON.stringify(order));
@@ -354,7 +384,7 @@ export default function AdminProductsContent() {
     }
   }
 
-  /* ────────────────────────── render ────────────────────────── */
+  /* ───────────── render ───────────── */
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -491,7 +521,6 @@ export default function AdminProductsContent() {
               <fieldset className="border p-4 rounded">
                 <legend className="font-semibold px-2">Produktdetails</legend>
                 <div className="grid grid-cols-2 gap-4 mt-2">
-                  {/* Name */}
                   <div>
                     <label className="block text-sm">Name</label>
                     <input
@@ -502,7 +531,6 @@ export default function AdminProductsContent() {
                       className="w-full border p-2 rounded"
                     />
                   </div>
-                  {/* Preis */}
                   <div>
                     <label className="block text-sm">Preis (€)</label>
                     <input
@@ -514,7 +542,6 @@ export default function AdminProductsContent() {
                       className="w-full border p-2 rounded"
                     />
                   </div>
-                  {/* THC */}
                   <div>
                     <label className="block text-sm">THC (%)</label>
                     <input
@@ -526,7 +553,6 @@ export default function AdminProductsContent() {
                       className="w-full border p-2 rounded"
                     />
                   </div>
-                  {/* CBD */}
                   <div>
                     <label className="block text-sm">CBD (%)</label>
                     <input
@@ -538,7 +564,6 @@ export default function AdminProductsContent() {
                       className="w-full border p-2 rounded"
                     />
                   </div>
-                  {/* Genetik */}
                   <div>
                     <label className="block text-sm">Genetik</label>
                     <select
@@ -552,7 +577,6 @@ export default function AdminProductsContent() {
                       <option>Sativa</option>
                     </select>
                   </div>
-                  {/* Verfügbar */}
                   <div className="flex items-center pt-6">
                     <input
                       type="checkbox"
@@ -563,7 +587,6 @@ export default function AdminProductsContent() {
                     />
                     <label>Verfügbar</label>
                   </div>
-                  {/* Hersteller */}
                   <div>
                     <label className="block text-sm">Hersteller</label>
                     <select
@@ -581,7 +604,6 @@ export default function AdminProductsContent() {
                       ))}
                     </select>
                   </div>
-                  {/* Herkunft */}
                   <div>
                     <label className="block text-sm">Herkunft</label>
                     <select
@@ -598,7 +620,6 @@ export default function AdminProductsContent() {
                       ))}
                     </select>
                   </div>
-                  {/* Ray */}
                   <div>
                     <label className="block text-sm">Ray</label>
                     <select
@@ -616,6 +637,29 @@ export default function AdminProductsContent() {
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* AboutFlower & GrowerDescription */}
+                <div className="mt-4">
+                  <label className="block font-medium mb-1">About Flower</label>
+                  <textarea
+                    name="aboutFlower"
+                    value={form.aboutFlower}
+                    onChange={onChangeForm}
+                    rows={4}
+                    className="w-full border p-2 rounded"
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <label className="block font-medium mb-1">Grower Description</label>
+                  <textarea
+                    name="growerDescription"
+                    value={form.growerDescription}
+                    onChange={onChangeForm}
+                    rows={4}
+                    className="w-full border p-2 rounded"
+                  />
                 </div>
 
                 {/* Effekte */}
@@ -736,7 +780,6 @@ export default function AdminProductsContent() {
                 </div>
               </fieldset>
 
-              {/* ACTIONS */}
               <div className="flex justify-end space-x-4">
                 <Button type="submit">
                   {mode === "edit" ? "Speichern" : "Hinzufügen"}
