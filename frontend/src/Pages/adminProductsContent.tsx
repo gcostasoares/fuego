@@ -21,7 +21,7 @@ type Product = {
   thc: number;
   cbd: number;
   genetics: string;
-  imageUrl: string[];
+  imageUrl: string[];            // always an array after fetchProducts()
   isAvailable: string;
   manufacturer: string | null;
   origin: string | null;
@@ -121,9 +121,23 @@ export default function AdminProductsContent() {
   /* ---------- data fetchers ---------- */
   async function fetchProducts() {
     try {
-      /* admin endpoint returns IDs we need */
       const res = await apiClient.get("/Products", { headers });
-      setProducts(res.data as Product[]);
+
+      const list: Product[] = (res.data as any[]).map((p) => {
+        /* parse possible JSON or null imageUrl into an array */
+        let imgs: string[] = [];
+        try {
+          if (p.imageUrl) {
+            imgs = JSON.parse(String(p.imageUrl).replace(/\\/g, ""));
+            if (!Array.isArray(imgs)) imgs = [];
+          }
+        } catch {
+          imgs = [];
+        }
+        return { ...p, imageUrl: imgs };
+      });
+
+      setProducts(list);
     } catch (err) {
       console.error("fetchProducts error:", err);
       setProducts([]);
@@ -301,7 +315,6 @@ export default function AdminProductsContent() {
     fd.append("genetics", form.genetics);
     fd.append("isAvailable", form.isAvailable ? "1" : "0");
 
-    /* append only when a GUID is present */
     if (form.manufacturerId) fd.append("manufacturerId", form.manufacturerId);
     if (form.originId)       fd.append("originId",       form.originId);
     if (form.rayId)          fd.append("rayId",          form.rayId);
