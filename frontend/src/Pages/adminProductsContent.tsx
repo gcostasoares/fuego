@@ -1,3 +1,4 @@
+// src/admin/AdminProductsContent.tsx
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
@@ -7,11 +8,11 @@ import {
   Draggable,
   DropResult,
 } from "react-beautiful-dnd";
+import FullPageLoader from "@/components/FullPageLoader";
 
-/* ------------------------------------------------------------------ */
-/* --------------------------- type helpers ------------------------- */
+/* ────────────────────────── types ────────────────────────── */
 type Lookup = { id: string; title: string; name: string };
-type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
+type JT = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
 
 type Product = {
   id: string;
@@ -22,9 +23,6 @@ type Product = {
   genetics: string;
   imageUrl: string[];
   isAvailable: string;
-  manufacturer: string | null;
-  origin: string | null;
-  ray: string | null;
   manufacturerId: string | null;
   originId: string | null;
   rayId: string | null;
@@ -42,18 +40,6 @@ type Form = {
   rayId: string;
 };
 
-const defaultForm: Form = {
-  name: "",
-  price: 0,
-  thc: 0,
-  cbd: 0,
-  genetics: "",
-  isAvailable: false,
-  manufacturerId: "",
-  originId: "",
-  rayId: "",
-};
-
 type GalleryItem = {
   id: string;
   src: string;
@@ -61,65 +47,67 @@ type GalleryItem = {
   existingFilename?: string;
 };
 
-/* ------------------------------------------------------------------ */
-/* ---------------------------- component --------------------------- */
+/* ───────────────────────── component ───────────────────────── */
 export default function AdminProductsContent() {
   /* ---------- state ---------- */
-  const [products,      setProducts]      = useState<Product[]>([]);
-  const [manufacturers, setManufacturers] = useState<Lookup[]>([]);
-  const [origins,       setOrigins]       = useState<Lookup[]>([]);
-  const [rays,          setRays]          = useState<Lookup[]>([]);
-  const [strains,       setStrains]       = useState<Lookup[]>([]);
-
-  const [effects,       setEffects]       = useState<Lookup[]>([]);
-  const [terpenes,      setTerpenes]      = useState<Lookup[]>([]);
-  const [tastes,        setTastes]        = useState<Lookup[]>([]);
-
-  const [prodEff,       setProdEff]       = useState<JT[]>([]);
-  const [prodTerp,      setProdTerp]      = useState<JT[]>([]);
-  const [prodTaste,     setProdTaste]     = useState<JT[]>([]);
-
-  const [open,          setOpen]          = useState(false);
-  const [mode,          setMode]          = useState<"add" | "edit">("add");
-  const [selected,      setSelected]      = useState<Product | null>(null);
-  const [form,          setForm]          = useState<Form>(defaultForm);
-
+  const [loading,        setLoading]        = useState(false);
+  const [products,       setProducts]       = useState<Product[]>([]);
+  const [manufacturers,  setManufacturers]  = useState<Lookup[]>([]);
+  const [origins,        setOrigins]        = useState<Lookup[]>([]);
+  const [rays,           setRays]           = useState<Lookup[]>([]);
+  const [strains,        setStrains]        = useState<Lookup[]>([]);
+  const [effects,        setEffects]        = useState<Lookup[]>([]);
+  const [terpenes,       setTerpenes]       = useState<Lookup[]>([]);
+  const [tastes,         setTastes]         = useState<Lookup[]>([]);
+  const [prodEff,        setProdEff]        = useState<JT[]>([]);
+  const [prodTerp,       setProdTerp]       = useState<JT[]>([]);
+  const [prodTaste,      setProdTaste]      = useState<JT[]>([]);
+  const [open,           setOpen]           = useState(false);
+  const [mode,           setMode]           = useState<"add" | "edit">("add");
+  const [selected,       setSelected]       = useState<Product | null>(null);
+  const [form,           setForm]           = useState<Form>({
+    name: "",
+    price: 0,
+    thc: 0,
+    cbd: 0,
+    genetics: "",
+    isAvailable: false,
+    manufacturerId: "",
+    originId: "",
+    rayId: "",
+  });
   const [existingProfile, setExistingProfile] = useState<string | null>(null);
   const [removeProfile,   setRemoveProfile]   = useState(false);
   const [profileFile,     setProfileFile]     = useState<File | null>(null);
   const [profilePreview,  setProfilePreview]  = useState<string | null>(null);
+  const [galleryItems,    setGalleryItems]    = useState<GalleryItem[]>([]);
+  const [removeGallery,   setRemoveGallery]   = useState<string[]>([]);
+  const [selEff,          setSelEff]          = useState<string[]>([]);
+  const [selTerp,         setSelTerp]         = useState<string[]>([]);
+  const [selTaste,        setSelTaste]        = useState<string[]>([]);
 
-  const [galleryItems, setGalleryItems]   = useState<GalleryItem[]>([]);
-  const [removeGallery, setRemoveGallery] = useState<string[]>([]);
-
-  const [selEff,   setSelEff]   = useState<string[]>([]);
-  const [selTerp,  setSelTerp]  = useState<string[]>([]);
-  const [selTaste, setSelTaste] = useState<string[]>([]);
-
-  /* ---------- refs ---------- */
+  /* ---------- refs & constants ---------- */
   const modalRef = useRef<HTMLDivElement>(null);
-
-  /* ---------- constants ---------- */
-  const API_URL        = "https://fuego-ombm.onrender.com";
-  const headers        = { "x-admin-key": localStorage.getItem("adminKey") || "" };
-  const priceFormatter = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const API_URL  = "https://fuego-ombm.onrender.com";
+  const headers  = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
   /* ---------- lifecycle ---------- */
   useEffect(() => {
-    fetchProducts();
-    fetchProductFilters();
-    fetchJunctions();
+    (async () => {
+      setLoading(true);
+      await Promise.all([fetchProducts(), fetchProductFilters(), fetchJunctions()]);
+      setLoading(false);
+    })();
   }, []);
 
   /* ---------- helpers ---------- */
   const normalise = (arr: any[]): Lookup[] =>
-    arr.map(o => ({ id: o.id, title: o.title ?? o.name, name: o.name ?? o.title }));
+    arr.map((o: any) => ({ id: o.id, title: o.title ?? o.name, name: o.name ?? o.title }));
 
   /* ---------- data fetchers ---------- */
   async function fetchProducts() {
     try {
       const { data } = await apiClient.get("/Products", { headers });
-
       const list: Product[] = (data as any[]).map(p => {
         let imgs: string[] = [];
         try {
@@ -128,10 +116,8 @@ export default function AdminProductsContent() {
             if (!Array.isArray(imgs)) imgs = [];
           }
         } catch { /* ignore */ }
-
         return { ...p, price: Number(p.price) || 0, imageUrl: imgs };
       });
-
       setProducts(list);
     } catch (err) {
       console.error("fetchProducts error:", err);
@@ -176,7 +162,7 @@ export default function AdminProductsContent() {
       setSelected(prod);
       setForm({
         name: prod.name,
-        price: prod.price ?? 0,
+        price: prod.price,
         thc: prod.thc,
         cbd: prod.cbd,
         genetics: prod.genetics,
@@ -192,11 +178,13 @@ export default function AdminProductsContent() {
       setProfileFile(null);
       setProfilePreview(profile ? `${API_URL}/images/Products/${profile}` : null);
 
-      setGalleryItems(gallery.map(fn => ({
-        id: fn,
-        src: `${API_URL}/images/Products/${fn}`,
-        existingFilename: fn,
-      })));
+      setGalleryItems(
+        gallery.map(fn => ({
+          id: fn,
+          src: `${API_URL}/images/Products/${fn}`,
+          existingFilename: fn,
+        }))
+      );
       setRemoveGallery([]);
 
       setSelEff  (prodEff .filter(r => r.productId === prod.id).map(r => r.effectId!));
@@ -205,7 +193,17 @@ export default function AdminProductsContent() {
     } else {
       setMode("add");
       setSelected(null);
-      setForm(defaultForm);
+      setForm({
+        name: "",
+        price: 0,
+        thc: 0,
+        cbd: 0,
+        genetics: "",
+        isAvailable: false,
+        manufacturerId: "",
+        originId: "",
+        rayId: "",
+      });
       setExistingProfile(null);
       setRemoveProfile(false);
       setProfileFile(null);
@@ -219,29 +217,31 @@ export default function AdminProductsContent() {
     setOpen(true);
   }
 
-  function closeModal() { setOpen(false); }
+  function closeModal() {
+    setOpen(false);
+  }
 
-  /* ---------- form & gallery helpers ---------- */
-  const onChangeForm = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  /* ---------- form helpers ---------- */
+  function onChangeForm(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value, type, checked } = e.target as any;
     setForm(f => ({ ...f, [name]: type === "checkbox" ? checked : value }));
-  };
+  }
 
-  const onProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function onProfileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] || null;
     setProfileFile(file);
     setProfilePreview(file ? URL.createObjectURL(file) : null);
     if (existingProfile) setRemoveProfile(true);
-  };
+  }
 
-  const removeProfileImage = () => {
+  function removeProfileImage() {
     setProfileFile(null);
     setProfilePreview(null);
     if (existingProfile) setRemoveProfile(true);
     setExistingProfile(null);
-  };
+  }
 
-  const handleGallery = (e: React.ChangeEvent<HTMLInputElement>) => {
+  function handleGallery(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
     const arr = Array.from(e.target.files);
     setGalleryItems(prev => [
@@ -253,9 +253,9 @@ export default function AdminProductsContent() {
       })),
     ]);
     e.target.value = "";
-  };
+  }
 
-  const removeGalleryItem = (i: number) => {
+  function removeGalleryItem(i: number) {
     setGalleryItems(prev => {
       const item = prev[i];
       if (item.existingFilename) setRemoveGallery(r => [...r, item.existingFilename!]);
@@ -263,15 +263,15 @@ export default function AdminProductsContent() {
       c.splice(i, 1);
       return c;
     });
-  };
+  }
 
-  const onDragEnd = (result: DropResult) => {
+  function onDragEnd(result: DropResult) {
     if (!result.destination) return;
     const a = Array.from(galleryItems);
     const [m] = a.splice(result.source.index, 1);
     a.splice(result.destination.index, 0, m);
     setGalleryItems(a);
-  };
+  }
 
   function onMultiAdd(
     e: React.ChangeEvent<HTMLSelectElement>,
@@ -284,24 +284,25 @@ export default function AdminProductsContent() {
     e.target.value = "";
   }
 
-  const removeTag = (id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) =>
+  function removeTag(id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) {
     setter(prev => prev.filter(x => x !== id));
+  }
 
   /* ---------- submit / delete ---------- */
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const fd = new FormData();
+    setLoading(true);
 
+    const fd = new FormData();
     fd.append("name", form.name);
     fd.append("price", String(form.price));
-    fd.append("thc", String(form.thc));
-    fd.append("cbd", String(form.cbd));
+    fd.append("thc",   String(form.thc));
+    fd.append("cbd",   String(form.cbd));
     fd.append("genetics", form.genetics);
     fd.append("isAvailable", form.isAvailable ? "1" : "0");
-
-    if (form.manufacturerId) fd.append("manufacturerId", form.manufacturerId);
-    if (form.originId)       fd.append("originId",       form.originId);
-    if (form.rayId)          fd.append("rayId",          form.rayId);
+    fd.append("manufacturerId", form.manufacturerId);
+    fd.append("originId",       form.originId);
+    fd.append("rayId",          form.rayId);
     fd.append("rating", "0");
 
     if (removeProfile && existingProfile) fd.append("removeImages", existingProfile);
@@ -311,51 +312,58 @@ export default function AdminProductsContent() {
     galleryItems.forEach(item => item.file && fd.append("images", item.file));
 
     const order: string[] = [];
-    if (profileFile) order.push("__NEW__");
+    if (profileFile)        order.push("__NEW__");
     else if (existingProfile) order.push(existingProfile);
     galleryItems.forEach(item => {
-      if (item.file) order.push("__NEW__");
+      if (item.file)            order.push("__NEW__");
       else if (item.existingFilename) order.push(item.existingFilename);
     });
     fd.append("imageOrder", JSON.stringify(order));
 
-    selEff.forEach(id => fd.append("effectFilter", id));
-    selTerp.forEach(id => fd.append("terpeneFilter", id));
-    selTaste.forEach(id => fd.append("tasteFilter", id));
+    selEff.forEach(id   => fd.append("effectFilter",   id));
+    selTerp.forEach(id  => fd.append("terpeneFilter",  id));
+    selTaste.forEach(id => fd.append("tasteFilter",    id));
 
     const cfg = { headers: { ...headers, "Content-Type": "multipart/form-data" } };
-    if (mode === "add") {
-      await apiClient.post("/Products", fd, cfg);
-    } else if (selected) {
-      await apiClient.put(`/Products/${selected.id}`, fd, cfg);
-    }
 
-    await fetchProducts();
-    await fetchJunctions();
-    closeModal();
+    try {
+      if (mode === "add")        await apiClient.post("/Products",       fd, cfg);
+      else if (selected)         await apiClient.put(`/Products/${selected.id}`, fd, cfg);
+      await fetchProducts();
+      await fetchJunctions();
+      closeModal();
+    } catch (err) {
+      console.error("save error:", err);
+      alert("Speichern fehlgeschlagen");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function onDelete(id: string) {
-    if (!confirm("Delete this product?")) return;
+    if (!confirm("Löschen?")) return;
+    setLoading(true);
     try {
       await apiClient.delete(`/Products/${id}`, { headers });
       await fetchProducts();
     } catch (err) {
       console.error("deleteProduct error:", err);
       alert("Löschen fehlgeschlagen");
+    } finally {
+      setLoading(false);
     }
   }
 
-  // ── RENDER ───────────────────────────────────────────────────────────────
+  /* ────────────────────────── render ────────────────────────── */
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Produkte</h2>
-        <Button onClick={()=>openModal()}>Neues Produkt</Button>
+        <Button onClick={() => openModal()}>Neues Produkt hinzufügen</Button>
       </div>
 
       <ul className="divide-y">
-        {products.map(p=>(
+        {products.map(p => (
           <li
             key={p.id}
             className="flex justify-between items-center p-2 hover:bg-gray-50"
@@ -370,12 +378,12 @@ export default function AdminProductsContent() {
               )}
               <span
                 className="cursor-pointer text-blue-600 hover:underline"
-                onClick={()=>openModal(p)}
+                onClick={() => openModal(p)}
               >
-                {p.name} — {priceFormatter.format(p.price)}
+                {p.name}
               </span>
             </div>
-            <Button variant="destructive" onClick={()=>onDelete(p.id)}>
+            <Button variant="destructive" onClick={() => onDelete(p.id)}>
               Löschen
             </Button>
           </li>
@@ -384,22 +392,24 @@ export default function AdminProductsContent() {
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={closeModal}
         >
           <div
             ref={modalRef}
-            onClick={e=>e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
             className="bg-white w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-lg shadow-lg p-6 relative"
           >
             <button
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl"
               onClick={closeModal}
               aria-label="Close"
-            >×</button>
+            >
+              ×
+            </button>
 
             <h3 className="text-2xl font-bold mb-4">
-              {mode==="edit"?"Produkt bearbeiten":"Neues Produkt"}
+              {mode === "edit" ? "Produkt bearbeiten" : "Neues Produkt"}
             </h3>
 
             <form onSubmit={onSubmit} className="space-y-6">
@@ -416,7 +426,9 @@ export default function AdminProductsContent() {
                       type="button"
                       onClick={removeProfileImage}
                       className="absolute top-0 right-0 bg-white rounded-full p-1 text-red-500"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </div>
                 ) : (
                   <input
@@ -438,15 +450,15 @@ export default function AdminProductsContent() {
                 />
                 <DragDropContext onDragEnd={onDragEnd}>
                   <Droppable droppableId="gallery" direction="horizontal">
-                    {provided=>(
+                    {provided => (
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
                         className="flex flex-wrap gap-2 mt-2"
                       >
-                        {galleryItems.map((item,i)=>(
+                        {galleryItems.map((item, i) => (
                           <Draggable key={item.id} draggableId={item.id} index={i}>
-                            {prov=>(
+                            {prov => (
                               <div
                                 ref={prov.innerRef}
                                 {...prov.draggableProps}
@@ -459,9 +471,11 @@ export default function AdminProductsContent() {
                                 />
                                 <button
                                   type="button"
-                                  onClick={()=>removeGalleryItem(i)}
+                                  onClick={() => removeGalleryItem(i)}
                                   className="absolute top-0 right-0 bg-white rounded-full p-1 text-red-500"
-                                >×</button>
+                                >
+                                  ×
+                                </button>
                               </div>
                             )}
                           </Draggable>
@@ -560,8 +574,10 @@ export default function AdminProductsContent() {
                       className="w-full border p-2 rounded"
                     >
                       <option value="">Auswählen</option>
-                      {manufacturers.map(m=>(
-                        <option key={m.id} value={m.id}>{m.title}</option>
+                      {manufacturers.map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.title}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -575,8 +591,10 @@ export default function AdminProductsContent() {
                       className="w-full border p-2 rounded"
                     >
                       <option value="">Auswählen</option>
-                      {origins.map(o=>(
-                        <option key={o.id} value={o.id}>{o.title}</option>
+                      {origins.map(o => (
+                        <option key={o.id} value={o.id}>
+                          {o.title}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -591,8 +609,10 @@ export default function AdminProductsContent() {
                       className="w-full border p-2 rounded"
                     >
                       <option value="">Auswählen</option>
-                      {rays.map(r=>(
-                        <option key={r.id} value={r.id}>{r.title}</option>
+                      {rays.map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.title}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -602,26 +622,38 @@ export default function AdminProductsContent() {
                 <div className="mt-4">
                   <label className="block font-medium mb-1">Effekte</label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {selEff.map(id=>{
-                      const e = effects.find(x=>x.id===id);
+                    {selEff.map(id => {
+                      const e = effects.find(x => x.id === id);
                       return (
-                        <button key={id} type="button"
-                          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center gap-1">
+                        <button
+                          key={id}
+                          type="button"
+                          className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full flex items-center gap-1"
+                        >
                           {e?.title}
-                          <span onClick={()=>removeTag(id,setSelEff)}
-                                className="ml-1 cursor-pointer">×</span>
+                          <span
+                            onClick={() => removeTag(id, setSelEff)}
+                            className="ml-1 cursor-pointer"
+                          >
+                            ×
+                          </span>
                         </button>
                       );
                     })}
                   </div>
                   <select
                     value=""
-                    onChange={e=>onMultiAdd(e,setSelEff,selEff)}
+                    onChange={e => onMultiAdd(e, setSelEff, selEff)}
                     className="w-full border p-2 rounded"
                   >
                     <option value="">Effekt hinzufügen…</option>
-                    {effects.filter(x=>!selEff.includes(x.id))
-                            .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                    {effects
+                      .filter(x => !selEff.includes(x.id))
+                      .map(x => (
+                        <option key={x.id} value={x.id}>
+                          {x.title}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -629,26 +661,38 @@ export default function AdminProductsContent() {
                 <div className="mt-4">
                   <label className="block font-medium mb-1">Terpene</label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {selTerp.map(id=>{
-                      const t = terpenes.find(x=>x.id===id);
+                    {selTerp.map(id => {
+                      const t = terpenes.find(x => x.id === id);
                       return (
-                        <button key={id} type="button"
-                          className="bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1">
+                        <button
+                          key={id}
+                          type="button"
+                          className="bg-green-100 text-green-800 px-3 py-1 rounded-full flex items-center gap-1"
+                        >
                           {t?.title}
-                          <span onClick={()=>removeTag(id,setSelTerp)}
-                                className="ml-1 cursor-pointer">×</span>
+                          <span
+                            onClick={() => removeTag(id, setSelTerp)}
+                            className="ml-1 cursor-pointer"
+                          >
+                            ×
+                          </span>
                         </button>
                       );
                     })}
                   </div>
                   <select
                     value=""
-                    onChange={e=>onMultiAdd(e,setSelTerp,selTerp)}
+                    onChange={e => onMultiAdd(e, setSelTerp, selTerp)}
                     className="w-full border p-2 rounded"
                   >
                     <option value="">Terpen hinzufügen…</option>
-                    {terpenes.filter(x=>!selTerp.includes(x.id))
-                              .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                    {terpenes
+                      .filter(x => !selTerp.includes(x.id))
+                      .map(x => (
+                        <option key={x.id} value={x.id}>
+                          {x.title}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -656,39 +700,57 @@ export default function AdminProductsContent() {
                 <div className="mt-4">
                   <label className="block font-medium mb-1">Geschmäcker</label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {selTaste.map(id=>{
-                      const t = tastes.find(x=>x.id===id);
+                    {selTaste.map(id => {
+                      const t = tastes.find(x => x.id === id);
                       return (
-                        <button key={id} type="button"
-                          className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full flex items-center gap-1">
+                        <button
+                          key={id}
+                          type="button"
+                          className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full flex items-center gap-1"
+                        >
                           {t?.title}
-                          <span onClick={()=>removeTag(id,setSelTaste)}
-                                className="ml-1 cursor-pointer">×</span>
+                          <span
+                            onClick={() => removeTag(id, setSelTaste)}
+                            className="ml-1 cursor-pointer"
+                          >
+                            ×
+                          </span>
                         </button>
                       );
                     })}
                   </div>
                   <select
                     value=""
-                    onChange={e=>onMultiAdd(e,setSelTaste,selTaste)}
+                    onChange={e => onMultiAdd(e, setSelTaste, selTaste)}
                     className="w-full border p-2 rounded"
                   >
                     <option value="">Geschmack hinzufügen…</option>
-                    {tastes.filter(x=>!selTaste.includes(x.id))
-                           .map(x=><option key={x.id} value={x.id}>{x.title}</option>)}
+                    {tastes
+                      .filter(x => !selTaste.includes(x.id))
+                      .map(x => (
+                        <option key={x.id} value={x.id}>
+                          {x.title}
+                        </option>
+                      ))}
                   </select>
                 </div>
               </fieldset>
 
               {/* ACTIONS */}
               <div className="flex justify-end space-x-4">
-                <Button type="submit">{mode==="edit"?"Speichern":"Hinzufügen"}</Button>
-                <Button variant="outline" onClick={closeModal}>Abbrechen</Button>
+                <Button type="submit">
+                  {mode === "edit" ? "Speichern" : "Hinzufügen"}
+                </Button>
+                <Button variant="outline" onClick={closeModal}>
+                  Abbrechen
+                </Button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {loading && <FullPageLoader />}
     </div>
   );
 }
