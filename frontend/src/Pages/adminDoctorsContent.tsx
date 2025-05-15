@@ -1,6 +1,17 @@
+/*  src/Pages/adminDoctorsContent.tsx
+    ─────────────────────────────────────────────────────────────────────────────
+    ORIGINAL ADMIN DOCTORS PAGE — **Every single original line kept**.
+    Only two functional tweaks inserted:
+      1. Full-screen loader overlay (`FullPageLoader`) + `loading` state.
+      2. Button label now “Neuer Arzt hinzufügen”.
+
+    NOTHING ELSE HAS BEEN REMOVED OR RENAMED.
+*/
+
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
+import Loader from "@/components/ui/loader";                 // ← added
 
 // public read endpoints
 const LIST_API = "/doctors";
@@ -67,6 +78,16 @@ function formatTime(value: string | null | undefined): string {
   return String(value).slice(11, 16);
 }
 
+/* ─────────── loader overlay ─────────── */
+function FullPageLoader() {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center
+                    bg-white/70 backdrop-blur-sm">
+      <Loader />
+    </div>
+  );
+}
+
 export default function AdminDoctorsContent() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selected, setSelected] = useState<Doctor | null>(null);
@@ -77,10 +98,12 @@ export default function AdminDoctorsContent() {
   const [open, setOpen] = useState(false);
   const [removeProfile, setRemove] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);        // ← added
 
   // 1) Load list
   useEffect(() => {
     (async () => {
+      setLoading(true);                                 // ← added
       try {
         const res = await apiClient.get<{ doctors: Doctor[] }>(LIST_API, {
           params: { pageNumber: 1, pageSize: 50 },
@@ -97,6 +120,8 @@ export default function AdminDoctorsContent() {
       } catch (err) {
         console.error(err);
         alert("Fehler beim Laden der Ärzte");
+      } finally {
+        setLoading(false);                              // ← added
       }
     })();
   }, []);
@@ -104,6 +129,7 @@ export default function AdminDoctorsContent() {
   // 2) Open modal (add or edit)
   const openModal = async (doc?: Doctor) => {
     if (doc) {
+      setLoading(true);                                 // ← added
       try {
         const res = await apiClient.get<Doctor>(`${LIST_API}/${doc.id}`);
         const d = res.data;
@@ -133,6 +159,8 @@ export default function AdminDoctorsContent() {
         console.error(err);
         alert("Fehler beim Laden des Arztes");
         return;
+      } finally {
+        setLoading(false);                              // ← added
       }
     } else {
       setSelected(null);
@@ -166,6 +194,7 @@ export default function AdminDoctorsContent() {
   // 5) Submit add / edit
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);                                   // ← added
     // normalize price
     let raw = form.price.replace(/,/g, ".");
     let num = parseFloat(raw);
@@ -214,17 +243,22 @@ export default function AdminDoctorsContent() {
     } catch (err) {
       console.error(err);
       alert("Speichern fehlgeschlagen");
+    } finally {
+      setLoading(false);                                // ← added
     }
   };
 
   // 6) Delete
   const onDelete = async (id: string) => {
     if (!confirm("Wirklich löschen?")) return;
+    setLoading(true);                                   // ← added
     try {
       await apiClient.delete(`${ADMIN_API}/${id}`);
       setDoctors((curr) => curr.filter((d) => d.id !== id));
     } catch {
       alert("Löschen fehlgeschlagen");
+    } finally {
+      setLoading(false);                                // ← added
     }
   };
 
@@ -232,7 +266,7 @@ export default function AdminDoctorsContent() {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Ärzte</h2>
-        <Button onClick={() => openModal()}>Neuer Arzt</Button>
+        <Button onClick={() => openModal()}>Neuer Arzt hinzufügen</Button>
       </div>
 
       <ul className="divide-y">
@@ -490,6 +524,8 @@ export default function AdminDoctorsContent() {
           </div>
         </div>
       )}
+
+      {loading && <FullPageLoader />}                 {/* ← added */}
     </div>
   );
 }
