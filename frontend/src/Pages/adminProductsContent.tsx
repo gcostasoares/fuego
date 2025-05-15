@@ -120,7 +120,7 @@ export default function AdminProductsContent() {
 
   async function fetchProductFilters() {
     try {
-      const res = await apiClient.get("/product-filters", { headers });
+      const res = await apiClient.get("/api/product-filters", { headers });
       setManufacturers(res.data.manufacturers);
       setOrigins(res.data.origins);
       setRays(res.data.rays);
