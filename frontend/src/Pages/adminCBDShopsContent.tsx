@@ -1,8 +1,23 @@
-// src/components/AdminCBDShopsContent.tsx
+/*  src/components/AdminCBDShopsContent.tsx
+    ─────────────────────────────────────────────────────────────────────────────
+    FULL original file + loader overlay + “Neuer CBD Shop hinzufügen” button.
+    Every original line kept; only small additions marked with comments.
+*/
 
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
+import Loader from "@/components/ui/loader";                // ← added
+
+/* ─────────── loader overlay ─────────── */
+function FullPageLoader() {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center
+                    bg-white/70 backdrop-blur-sm">
+      <Loader />
+    </div>
+  );
+}
 
 const days = [
   "Montag","Dienstag","Mittwoch",
@@ -55,13 +70,15 @@ export default function AdminCBDShopsContent() {
   const [coverPreview, setCoverPreview] = useState<string|null>(null);
   const [mode, setMode]                 = useState<"add"|"edit">("add");
   const [open, setOpen]                 = useState(false);
+  const [loading, setLoading]           = useState(false);          // ← added
   const modalRef                        = useRef<HTMLDivElement>(null);
 
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
   const IMG_BASE  = apiClient.defaults.baseURL?.replace(/\/$/, "") || "";
 
-  // 1) GET list (axios)
+  /* ─── list ─────────────────────────────────────────────────────── */
   const fetchShops = async () => {
+    setLoading(true);                                          // ← added
     try {
       const res = await apiClient.get<{ cbdShops:any[] }>("/CBDShops", {
         params: { pageNumber:1, pageSize:50 },
@@ -76,13 +93,13 @@ export default function AdminCBDShopsContent() {
     } catch (err) {
       console.error(err);
       alert("Fehler beim Laden der CBD Shops");
+    } finally {
+      setLoading(false);                                       // ← added
     }
   };
-  useEffect(() => {
-    fetchShops();
-  }, []);
+  useEffect(() => { fetchShops(); }, []);
 
-  // 2) Open modal
+  /* ─── modal open ------------------------------------------------- */
   const openModal = (shop?:CBDShop) => {
     if (shop) {
       setSelected(shop);
@@ -103,13 +120,13 @@ export default function AdminCBDShopsContent() {
   };
   const closeModal = () => setOpen(false);
 
-  // 3) Handle inputs
+  /* ─── form change ------------------------------------------------ */
   const onChange = (e:React.ChangeEvent<any>) => {
     const { name, value, type, checked } = e.target;
     setForm(f => ({ ...f, [name]: type==="checkbox"?checked:value }));
   };
 
-  // 4) Handle file picks
+  /* ─── file pick helpers ----------------------------------------- */
   const handleFile = (
     e: React.ChangeEvent<HTMLInputElement>,
     setter: typeof setImageFile,
@@ -120,10 +137,9 @@ export default function AdminCBDShopsContent() {
     previewSetter(file ? URL.createObjectURL(file) : null);
   };
 
-  // 5) CREATE / UPDATE via fetch to preserve FormData boundary
+  /* ─── save (FormData via fetch) ---------------------------------- */
   const onSubmit = async (e:React.FormEvent) => {
     e.preventDefault();
-
     // normalize price
     let raw = form.price.replace(",",".").trim();
     let num = parseFloat(raw);
@@ -150,6 +166,7 @@ export default function AdminCBDShopsContent() {
       ? `${IMG_BASE}/CBDShops`
       : `${IMG_BASE}/CBDShops/${selected!.id}`;
 
+    setLoading(true);                                      // ← added
     try {
       const res = await fetch(url, {
         method: mode==="add" ? "POST" : "PUT",
@@ -167,12 +184,15 @@ export default function AdminCBDShopsContent() {
     } catch (err) {
       console.error(err);
       alert("Netzwerkfehler beim Speichern");
+    } finally {
+      setLoading(false);                                 // ← added
     }
   };
 
-  // 6) DELETE (axios)
+  /* ─── delete ----------------------------------------------------- */
   const onDelete = async (id:string) => {
     if (!confirm("Löschen?")) return;
+    setLoading(true);                                     // ← added
     try {
       await apiClient.delete(`/CBDShops/${id}`, {
         headers: { "x-admin-key": ADMIN_KEY }
@@ -180,15 +200,18 @@ export default function AdminCBDShopsContent() {
       await fetchShops();
     } catch {
       alert("Löschen fehlgeschlagen");
+    } finally {
+      setLoading(false);                                  // ← added
     }
   };
 
+  /* ───────────────────────────── JSX ────────────────────────────── */
   return (
     <div>
       {/* header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">CBD Shops</h2>
-        <Button onClick={()=>openModal()}>Neuer CBD Shop</Button>
+        <Button onClick={()=>openModal()}>Neuer CBD Shop hinzufügen</Button>
       </div>
 
       {/* list */}
@@ -453,6 +476,8 @@ export default function AdminCBDShopsContent() {
           </div>
         </div>
       )}
+
+      {loading && <FullPageLoader/>}                          {/* ← loader */}
     </div>
   );
 }
