@@ -38,9 +38,9 @@ type Form = {
   cbd: number;
   genetics: string;
   isAvailable: boolean;
-  manufacturerId: string;  // may be ""
-  originId: string;        // may be ""
-  rayId: string;           // may be ""
+  manufacturerId: string;
+  originId: string;
+  rayId: string;
 };
 
 const defaultForm: Form = {
@@ -121,16 +121,9 @@ export default function AdminProductsContent() {
   /* ---------- data fetchers ---------- */
   async function fetchProducts() {
     try {
-      const res = await apiClient.get("/products", {
-        params: { page: 1, pageSize: 50 },
-        headers,
-      });
-      const list: Product[] = Array.isArray(res.data.products)
-        ? res.data.products
-        : Array.isArray(res.data)
-        ? res.data
-        : [];
-      setProducts(list);
+      /* admin endpoint returns IDs we need */
+      const res = await apiClient.get("/Products", { headers });
+      setProducts(res.data as Product[]);
     } catch (err) {
       console.error("fetchProducts error:", err);
       setProducts([]);
@@ -306,11 +299,9 @@ export default function AdminProductsContent() {
     fd.append("thc", String(form.thc));
     fd.append("cbd", String(form.cbd));
     fd.append("genetics", form.genetics);
-
-    /* send '1' / '0' so mssql BIT accepts it */
     fd.append("isAvailable", form.isAvailable ? "1" : "0");
 
-    /* only attach IDs if the user actually picked something */
+    /* append only when a GUID is present */
     if (form.manufacturerId) fd.append("manufacturerId", form.manufacturerId);
     if (form.originId)       fd.append("originId",       form.originId);
     if (form.rayId)          fd.append("rayId",          form.rayId);
