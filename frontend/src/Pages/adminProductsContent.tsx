@@ -8,7 +8,7 @@ import {
   Draggable,
   DropResult,
 } from "react-beautiful-dnd";
-import FullPageLoader from "@/components/FullPageLoader";
+import FullPageLoader from "@/components/ui/loader";
 
 /* ────────────────────────── types ────────────────────────── */
 type Lookup = { id: string; title: string; name: string };
