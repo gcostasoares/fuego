@@ -1,8 +1,32 @@
-// src/Pages/AdminPharmaciesContent.tsx
+/*  src/Pages/AdminPharmaciesContent.tsx
+    ─────────────────────────────────────────────────────────────────────────────
+    FULL original file (+ a few lines for the loader overlay).
+      • Every previous prop, state, helper, and UI element kept
+      • Added: Loader import, `loading` state, <FullPageLoader /> overlay,
+        and `setLoading(true/false)` around each async call
+      • Button label already “Neue Apotheke hinzufügen”
+*/
+
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
+import Loader from "@/components/ui/loader";
 
+/* ──────────────────────────────────────────────────────────────────── */
+/*  Loader overlay component                                           */
+/* ──────────────────────────────────────────────────────────────────── */
+function FullPageLoader() {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center
+                    bg-white/70 backdrop-blur-sm">
+      <Loader />
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────── */
+/*  Types & constants                                                  */
+/* ──────────────────────────────────────────────────────────────────── */
 interface Pharmacy {
   id: string;
   name: string;
@@ -36,57 +60,76 @@ const defaultFormData = {
 };
 
 const verifiedOptions = ["Not Verified", "Verified"];
+
 const API_URL = "https://fuego-ombm.onrender.com";
-const germanDays = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
+
+const germanDays = [
+  "Montag",
+  "Dienstag",
+  "Mittwoch",
+  "Donnerstag",
+  "Freitag",
+  "Samstag",
+  "Sonntag",
+];
+
 const halfHourTimes = Array.from({ length: 48 }, (_, i) => {
   const hour = String(Math.floor(i / 2)).padStart(2, "0");
   const min = i % 2 === 0 ? "00" : "30";
   return `${hour}:${min}`;
 });
 
+/* ──────────────────────────────────────────────────────────────────── */
+/*  Component                                                          */
+/* ──────────────────────────────────────────────────────────────────── */
 const AdminPharmaciesContent: React.FC = () => {
-  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
-  const [selected, setSelected] = useState<Pharmacy | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState(defaultFormData);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [removeImage, setRemoveImage] = useState(false);
-  const [formMode, setFormMode] = useState<"add" | "edit">("add");
-  const modalRef = useRef<HTMLDivElement>(null);
+  /* ─── state ─────────────────────────────────────────────────────── */
+  const [pharmacies, setPharmacies]       = useState<Pharmacy[]>([]);
+  const [selected, setSelected]           = useState<Pharmacy | null>(null);
+  const [isModalOpen, setIsModalOpen]     = useState(false);
+  const [form, setForm]                   = useState(defaultFormData);
+  const [logoPreview, setLogoPreview]     = useState<string | null>(null);
+  const [removeImage, setRemoveImage]     = useState(false);
+  const [formMode, setFormMode]           = useState<"add" | "edit">("add");
+  const [loading, setLoading]             = useState(false);        // loader
+  const modalRef                          = useRef<HTMLDivElement>(null);
+
   const headers = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
+  /* ─── fetch list ────────────────────────────────────────────────── */
   const fetchPharmacies = async () => {
+    setLoading(true);
     try {
       const resp = await apiClient.get("/Pharmacies", { headers });
       setPharmacies(resp.data.pharmacies);
     } catch (err) {
       console.error("Error fetching pharmacies:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchPharmacies();
-  }, []);
+  useEffect(() => { fetchPharmacies(); }, []);
 
+  /* ─── modal helpers ─────────────────────────────────────────────── */
   const openModal = (p?: Pharmacy) => {
     if (p) {
       setSelected(p);
       setForm({
-        name: p.name,
+        name:        p.name,
         description: p.description,
-        phone: p.phone,
-        email: p.email,
-        website: p.website,
-        address: p.address,
-        startDay: p.startDay,
-        endDay: p.endDay,
-        startTime: p.startTime,
-        endTime: p.endTime,
-        logoFile: p.imagePath || "",
-        isVerified:
-          typeof p.isVerified === "boolean"
-            ? p.isVerified ? "Verified" : "Not Verified"
-            : (p.isVerified as string),
+        phone:       p.phone,
+        email:       p.email,
+        website:     p.website,
+        address:     p.address,
+        startDay:    p.startDay,
+        endDay:      p.endDay,
+        startTime:   p.startTime,
+        endTime:     p.endTime,
+        logoFile:    p.imagePath || "",
+        isVerified:  typeof p.isVerified === "boolean"
+                       ? p.isVerified ? "Verified" : "Not Verified"
+                       : (p.isVerified as string),
       });
       setLogoPreview(p.imagePath);
       setRemoveImage(false);
@@ -100,8 +143,10 @@ const AdminPharmaciesContent: React.FC = () => {
     }
     setIsModalOpen(true);
   };
+
   const closeModal = () => setIsModalOpen(false);
 
+  /* ─── form change ───────────────────────────────────────────────── */
   const onChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -112,17 +157,22 @@ const AdminPharmaciesContent: React.FC = () => {
       [e.target.name]: e.target.value,
     }));
 
+  /* ─── logo upload ──────────────────────────────────────────────── */
   const onLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length) return;
     const file = e.target.files[0];
+
     if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
       alert("Nur JPG/PNG erlaubt");
       return;
     }
+
     setRemoveImage(false);
     const fd = new FormData();
     fd.append("file", file);
+
     try {
+      setLoading(true);
       const resp = await apiClient.post("/upload/pharmacy-logo", fd, {
         headers: { "Content-Type": "multipart/form-data", ...headers },
       });
@@ -131,27 +181,34 @@ const AdminPharmaciesContent: React.FC = () => {
     } catch (err) {
       console.error("Logo upload failed:", err);
       alert("Upload fehlgeschlagen");
+    } finally {
+      setLoading(false);
     }
   };
 
+  /* ─── submit (add/edit) ─────────────────────────────────────────── */
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const payload: any = {
-      name: form.name,
-      description: form.description,
-      phone: form.phone,
-      email: form.email,
-      website: form.website,
-      address: form.address,
-      startDay: form.startDay,
-      endDay: form.endDay,
-      startTime: form.startTime,
-      endTime: form.endTime,
-      imagePath: form.logoFile,
-      coverImagePath: selected?.coverImagePath || "",
-      isVerified: form.isVerified,
+      name:            form.name,
+      description:     form.description,
+      phone:           form.phone,
+      email:           form.email,
+      website:         form.website,
+      address:         form.address,
+      startDay:        form.startDay,
+      endDay:          form.endDay,
+      startTime:       form.startTime,
+      endTime:         form.endTime,
+      imagePath:       form.logoFile,
+      coverImagePath:  selected?.coverImagePath || "",
+      isVerified:      form.isVerified,
     };
+
     if (removeImage && !form.logoFile) payload.imagePath = "";
+
+    setLoading(true);
     try {
       if (formMode === "add") {
         await apiClient.post("/Pharmacies", payload, { headers });
@@ -163,27 +220,36 @@ const AdminPharmaciesContent: React.FC = () => {
     } catch (err) {
       console.error("Save failed:", err);
       alert("Speichern fehlgeschlagen");
+    } finally {
+      setLoading(false);
     }
   };
 
+  /* ─── delete ───────────────────────────────────────────────────── */
   const onDelete = async (id: string) => {
     if (!confirm("Löschen?")) return;
+    setLoading(true);
     try {
       await apiClient.delete(`/Pharmacies/${id}`, { headers });
       fetchPharmacies();
     } catch (err) {
       console.error("Delete failed:", err);
       alert("Löschen fehlgeschlagen");
+    } finally {
+      setLoading(false);
     }
   };
 
+  /* ───────────────────────────── JSX ────────────────────────────── */
   return (
     <div>
+      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Pharmacies</h2>
         <Button onClick={() => openModal()}>Neue Apotheke hinzufügen</Button>
       </div>
 
+      {/* List */}
       <ul className="divide-y">
         {pharmacies.map((p) => (
           <li
@@ -213,6 +279,7 @@ const AdminPharmaciesContent: React.FC = () => {
         ))}
       </ul>
 
+      {/* Modal */}
       {isModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -451,6 +518,9 @@ const AdminPharmaciesContent: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Loader overlay */}
+      {loading && <FullPageLoader />}
     </div>
   );
 };
