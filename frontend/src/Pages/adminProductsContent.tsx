@@ -572,8 +572,8 @@ export default function AdminProductsContent() {
                   <div>
                     <label className="block text-sm">Hersteller</label>
                     <select
-                      name="manufacturer"
-                      value={form.manufacturer}
+                      name="manufacturerId"
+                      value={form.manufacturerId}
                       onChange={onChangeForm}
                       required
                       className="w-full border p-2 rounded"
@@ -588,8 +588,8 @@ export default function AdminProductsContent() {
                   <div>
                     <label className="block text-sm">Herkunft</label>
                     <select
-                      name="origin"
-                      value={form.origin}
+                      name="originId"
+                      value={form.originId}
                       onChange={onChangeForm}
                       className="w-full border p-2 rounded"
                     >
@@ -603,8 +603,8 @@ export default function AdminProductsContent() {
                   <div>
                     <label className="block text-sm">Ray</label>
                     <select
-                      name="ray"
-                      value={form.ray}
+                      name="rayId"
+                      value={form.rayId}
                       onChange={onChangeForm}
                       required
                       className="w-full border p-2 rounded"
