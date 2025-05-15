@@ -1,10 +1,9 @@
 /* src/Pages/AdminProductsContent.tsx
    ─────────────────────────────────────────────────────────────────────────────
-   Full component including:
-   • full-screen loader overlay
-   • “Neues Produkt hinzufügen” button text
-   • product list shows only the name
-   • editable AboutFlower & GrowerDescription
+   • About Flower and Grower Description are now fetched and editable
+   • Full-screen loader (z-[999]) always sits on top of the modal during saves
+   • Button label “Neues Produkt hinzufügen”
+   • Product list shows only the name
 */
 
 import React, { useEffect, useState, useRef } from "react";
@@ -21,8 +20,8 @@ import {
 /* ───────────── overlay wrapper ───────────── */
 function FullPageLoader() {
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center
-                    bg-white/70 backdrop-blur-sm pointer-events-none">
+    <div className="fixed inset-0 z-[999] flex items-center justify-center
+                    bg-white/70 backdrop-blur-sm">
       <Loader />
     </div>
   );
@@ -149,6 +148,20 @@ export default function AdminProductsContent() {
     }
   }
 
+  async function fetchFullProduct(id: string): Promise<Product | null> {
+    try {
+      const { data } = await apiClient.get(`/Products/${id}`, { headers });
+      let imgs: string[] = [];
+      try {
+        imgs = JSON.parse(String(data.imagePath || "[]").replace(/\\/g, ""));
+      } catch { /* ignore */ }
+      return { ...data, imageUrl: imgs };
+    } catch (err) {
+      console.error("fetchFullProduct error:", err);
+      return null;
+    }
+  }
+
   async function fetchProductFilters() {
     try {
       const { data } = await apiClient.get("/api/product-filters", { headers });
@@ -180,25 +193,30 @@ export default function AdminProductsContent() {
   }
 
   /* ---------- modal handlers ---------- */
-  function openModal(prod?: Product) {
+  async function openModal(prod?: Product) {
     if (prod) {
+      setLoading(true);
+      const full = await fetchFullProduct(prod.id);
+      setLoading(false);
+      if (!full) return;
+
       setMode("edit");
-      setSelected(prod);
+      setSelected(full);
       setForm({
-        name: prod.name,
-        price: prod.price,
-        thc: prod.thc,
-        cbd: prod.cbd,
-        genetics: prod.genetics,
-        isAvailable: prod.isAvailable === "Available",
-        manufacturerId: prod.manufacturerId || "",
-        originId: prod.originId || "",
-        rayId: prod.rayId || "",
-        aboutFlower: prod.aboutFlower || "",
-        growerDescription: prod.growerDescription || "",
+        name: full.name,
+        price: full.price,
+        thc: full.thc,
+        cbd: full.cbd,
+        genetics: full.genetics,
+        isAvailable: full.isAvailable === "Available",
+        manufacturerId: full.manufacturerId || "",
+        originId: full.originId || "",
+        rayId: full.rayId || "",
+        aboutFlower: full.aboutFlower || "",
+        growerDescription: full.growerDescription || "",
       });
 
-      const [profile, ...gallery] = prod.imageUrl;
+      const [profile, ...gallery] = full.imageUrl;
       setExistingProfile(profile || null);
       setRemoveProfile(false);
       setProfileFile(null);
@@ -213,9 +231,9 @@ export default function AdminProductsContent() {
       );
       setRemoveGallery([]);
 
-      setSelEff  (prodEff .filter(r => r.productId === prod.id).map(r => r.effectId!));
-      setSelTerp (prodTerp.filter(r => r.productId === prod.id).map(r => r.terpeneId!));
-      setSelTaste(prodTaste.filter(r => r.productId === prod.id).map(r => r.tasteId!));
+      setSelEff  (prodEff .filter(r => r.productId === full.id).map(r => r.effectId!));
+      setSelTerp (prodTerp.filter(r => r.productId === full.id).map(r => r.terpeneId!));
+      setSelTaste(prodTaste.filter(r => r.productId === full.id).map(r => r.tasteId!));
     } else {
       setMode("add");
       setSelected(null);
