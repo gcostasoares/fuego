@@ -1,134 +1,167 @@
 /* backend/admin/Products/adminProductsController.js
-   ───────────────────────────────────────────────────────────────────────────── */
-const sql        = require("mssql");
+   ─────────────────────────────────────────────────────────────────────────────
+   * identical to your last working version, plus:
+   * buildImageArray() helper
+   * store ImagePath JSON in CREATE and UPDATE
+*/
+
+const sql          = require("mssql");
 const { v4: uuidv4 } = require("uuid");
 
-/* ------------------------------------------------------------------ */
-/*  Helper utilities                                                  */
-/* ------------------------------------------------------------------ */
+/* helper to grab the global MSSQL pool that server.js created */
 function getPool() {
   if (!global.pool) throw new Error("Database pool not initialized");
   return global.pool;
 }
 
-const toArray = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
+/* ───────────────────────────── helpers ──────────────────────────────────── */
 
-/** Build the final ordered image array from the placeholders + uploaded files */
-function buildImageArray(imageOrderRaw, files) {
-  const order = toArray(
-    typeof imageOrderRaw === "string" ? JSON.parse(imageOrderRaw) : imageOrderRaw
-  );
-  let fileIdx = 0;
-  const imgs = order.map((entry) => {
-    if (entry === "__NEW__") return files[fileIdx++]?.filename;
-    return entry;
-  }).filter(Boolean);
-  /* if extra files were sent but not referenced in order -> push them */
-  while (fileIdx < files.length) imgs.push(files[fileIdx++].filename);
+/** Normalises formData fields that can be sent once or many times */
+function toIdArray(val) {
+  if (!val) return [];
+  return Array.isArray(val) ? val : [val];
+}
+
+/** Build final ["profile.jpg","gal1.jpg", …] from imageOrder + uploaded files */
+function buildImageArray(orderRaw, files = []) {
+  if (!orderRaw) return files.map(f => f.filename);         // no order field
+  const order = typeof orderRaw === "string" ? JSON.parse(orderRaw) : orderRaw;
+  let i = 0;
+  const imgs = order.map(e => (e === "__NEW__" ? files[i++]?.filename : e))
+                    .filter(Boolean);
+  while (i < files.length) imgs.push(files[i++].filename);  // leftovers
   return imgs;
 }
 
-/** Bulk insert `(ProductId, tagId)` rows */
+/** Bulk-insert many `(ProductId, tagId)` rows in one VALUES (…) statement */
 async function insertMany(trx, table, col, productId, ids, tagPrefix) {
   if (!ids.length) return;
+
   const r = new sql.Request(trx);
   r.input("pid", sql.UniqueIdentifier, productId);
-  ids.forEach((id, i) => r.input(`${tagPrefix}${i}`, sql.UniqueIdentifier, id));
+
+  ids.forEach((id, i) =>
+    r.input(`${tagPrefix}${i}`, sql.UniqueIdentifier, id)
+  );
+
   const values = ids.map((_, i) => `(@pid, @${tagPrefix}${i})`).join(",");
   await r.query(`INSERT INTO ${table} (ProductId, ${col}) VALUES ${values}`);
 }
 
-/* ------------------------------------------------------------------ */
-/*  GET all / single                                                  */
-/* ------------------------------------------------------------------ */
+/* ───────────────────────────── queries ──────────────────────────────────── */
+
+/** GET /Products/ – list all products for the admin UI */
 exports.getProducts = async (_req, res) => {
   try {
-    const { recordset } = await getPool().request().query(`
+    const result = await getPool().request().query(`
       SELECT
-        p.Id, p.Name, p.SaleName, p.Genetics, p.Rating, p.CBD, p.THC,
-        p.Price, p.IsAvailable, p.ImagePath AS imageUrl,
-        p.ManufacturerId, p.OriginId, p.RayId,
-        m.Name AS manufacturer, o.Name AS origin, r.Name AS ray
+        p.Id              AS id,
+        p.Name            AS name,
+        p.SaleName        AS saleName,
+        p.Genetics        AS genetics,
+        p.Rating          AS rating,
+        p.CBD             AS cbd,
+        p.THC             AS thc,
+        p.Price           AS price,
+        p.IsAvailable     AS isAvailable,
+        p.ImagePath       AS imageUrl,
+        p.ManufacturerId  AS manufacturerId,
+        p.OriginId        AS originId,
+        p.RayId           AS rayId,
+        m.Name            AS manufacturer,
+        o.Name            AS origin,
+        r.Name            AS ray
       FROM tblProducts p
       LEFT JOIN tblManufacturers m ON p.ManufacturerId = m.Id
       LEFT JOIN tblOrigins       o ON p.OriginId       = o.Id
       LEFT JOIN tblRays          r ON p.RayId          = r.Id
       ORDER BY p.Name
     `);
-    res.json(recordset);
+    res.json(result.recordset);
   } catch (err) {
     console.error("getProducts error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
+/** GET /Products/:id – single product incl. gallery JSON */
 exports.getProductById = async (req, res) => {
   try {
-    const { recordset } = await getPool().request()
+    const result = await getPool().request()
       .input("id", sql.UniqueIdentifier, req.params.id)
       .query(`SELECT * FROM tblProducts WHERE Id = @id`);
-    if (!recordset.length) return res.status(404).json({ error: "Not found" });
 
-    const p = recordset[0];
-    try { p.ImagePath = JSON.parse(String(p.ImagePath || "[]").replace(/\\/g, "")); }
-    catch { p.ImagePath = []; }
+    if (!result.recordset.length) {
+      return res.status(404).json({ error: "Product not found" });
+    }
 
-    res.json(p);
+    const product = result.recordset[0];
+    try {
+      product.ImagePath = JSON.parse(
+        String(product.ImagePath || "[]").replace(/\\/g, "")
+      );
+    } catch {
+      product.ImagePath = [];
+    }
+
+    res.json(product);
   } catch (err) {
     console.error("getProductById error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
 
-/* ------------------------------------------------------------------ */
-/*  CREATE                                                            */
-/* ------------------------------------------------------------------ */
+/** POST /Products/ – create product + tags + image filenames */
 exports.createProduct = async (req, res) => {
   const trx = new sql.Transaction(getPool());
-  try {
-    await trx.begin();
 
-    /* ---------- build photo array ---------- */
+  try {
+    await trx.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+
+    const productId = uuidv4();
+    const {
+      name, saleName, genetics, rating = 0,
+      cbd, thc, price, isAvailable,
+      manufacturerId, originId, rayId,
+      aboutFlower, growerDescription, defaultImageIndex = 0,
+    } = req.body;
+
+    /* build gallery array from files + imageOrder */
     const images = buildImageArray(req.body.imageOrder, req.files || []);
 
-    /* ---------- main insert ---------- */
-    const productId = uuidv4();
-    const q = new sql.Request(trx)
+    /* 1) main product row --------------------------------------------------- */
+    await new sql.Request(trx)
       .input("id",                sql.UniqueIdentifier, productId)
-      .input("name",              sql.NVarChar,         req.body.name)
-      .input("saleName",          sql.NVarChar,         req.body.saleName)
-      .input("genetics",          sql.NVarChar,         req.body.genetics)
-      .input("rating",            sql.Int,              +req.body.rating || 0)
-      .input("cbd",               sql.Decimal,          req.body.cbd)
-      .input("thc",               sql.Decimal,          req.body.thc)
-      .input("price",             sql.Money,            req.body.price)
-      .input("isAvailable",       sql.Bit,              !!+req.body.isAvailable)
-      .input("manufacturerId",    sql.UniqueIdentifier, req.body.manufacturerId || null)
-      .input("originId",          sql.UniqueIdentifier, req.body.originId || null)
-      .input("rayId",             sql.UniqueIdentifier, req.body.rayId || null)
-      .input("aboutFlower",       sql.NVarChar,         req.body.aboutFlower)
-      .input("growerDescription", sql.NVarChar,         req.body.growerDescription)
-      .input("defaultImageIndex", sql.Int,              0)
-      .input("imagePath",         sql.NVarChar(sql.MAX), JSON.stringify(images));
+      .input("name",              sql.NVarChar,         name)
+      .input("saleName",          sql.NVarChar,         saleName)
+      .input("genetics",          sql.NVarChar,         genetics)
+      .input("rating",            sql.Int,              rating)
+      .input("cbd",               sql.Decimal,          cbd)
+      .input("thc",               sql.Decimal,          thc)
+      .input("price",             sql.Money,            price)
+      .input("isAvailable",       sql.Bit,              !!+isAvailable)
+      .input("manufacturerId",    sql.UniqueIdentifier, manufacturerId || null)
+      .input("originId",          sql.UniqueIdentifier, originId       || null)
+      .input("rayId",             sql.UniqueIdentifier, rayId          || null)
+      .input("aboutFlower",       sql.NVarChar,         aboutFlower)
+      .input("growerDescription", sql.NVarChar,         growerDescription)
+      .input("defaultImageIndex", sql.Int,              defaultImageIndex)
+      .input("imagePath",         sql.NVarChar(sql.MAX), JSON.stringify(images))
+      .query(`
+        INSERT INTO tblProducts
+          (Id, Name, SaleName, Genetics, Rating, CBD, THC, Price, IsAvailable,
+           ManufacturerId, OriginId, RayId,
+           AboutFlower, GrowerDescription, DefaultImageIndex, ImagePath)
+        VALUES
+          (@id, @name, @saleName, @genetics, @rating, @cbd, @thc, @price, @isAvailable,
+           @manufacturerId, @originId, @rayId,
+           @aboutFlower, @growerDescription, @defaultImageIndex, @imagePath)
+      `);
 
-    await q.query(`
-      INSERT INTO tblProducts
-        (Id, Name, SaleName, Genetics, Rating, CBD, THC, Price, IsAvailable,
-         ManufacturerId, OriginId, RayId,
-         AboutFlower, GrowerDescription, DefaultImageIndex, ImagePath)
-      VALUES
-        (@id, @name, @saleName, @genetics, @rating, @cbd, @thc, @price, @isAvailable,
-         @manufacturerId, @originId, @rayId,
-         @aboutFlower, @growerDescription, @defaultImageIndex, @imagePath)
-    `);
-
-    /* ---------- junction tables ---------- */
-    await insertMany(trx, "tblProductEffect",  "EffectId",
-                     productId, toArray(req.body.effectFilter),  "e");
-    await insertMany(trx, "tblProductTerpene", "TerpeneId",
-                     productId, toArray(req.body.terpeneFilter), "t");
-    await insertMany(trx, "tblProductTaste",   "TasteId",
-                     productId, toArray(req.body.tasteFilter),   "s");
+    /* 2) junction tables ---------------------------------------------------- */
+    await insertMany(trx, "tblProductEffect",  "EffectId",  productId, toIdArray(req.body.effectFilter),  "e");
+    await insertMany(trx, "tblProductTerpene", "TerpeneId", productId, toIdArray(req.body.terpeneFilter), "t");
+    await insertMany(trx, "tblProductTaste",   "TasteId",   productId, toIdArray(req.body.tasteFilter),   "s");
 
     await trx.commit();
     res.status(201).json({ message: "Product created", id: productId });
@@ -139,71 +172,74 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-/* ------------------------------------------------------------------ */
-/*  UPDATE                                                            */
-/* ------------------------------------------------------------------ */
+/** PUT /Products/:id – update row + refresh tags & images */
 exports.updateProduct = async (req, res) => {
   const trx = new sql.Transaction(getPool());
-  try {
-    await trx.begin();
 
-    const id = req.params.id;
+  try {
+    await trx.begin(sql.ISOLATION_LEVEL.READ_COMMITTED);
+
+    const {
+      name, saleName, genetics, rating = 0,
+      cbd, thc, price, isAvailable,
+      manufacturerId, originId, rayId,
+      aboutFlower, growerDescription, defaultImageIndex = 0,
+    } = req.body;
+    const productId = req.params.id;
+
     const images = buildImageArray(req.body.imageOrder, req.files || []);
 
-    /* ---------- update row ---------- */
-    const r = new sql.Request(trx)
-      .input("id",                sql.UniqueIdentifier, id)
-      .input("name",              sql.NVarChar,         req.body.name)
-      .input("saleName",          sql.NVarChar,         req.body.saleName)
-      .input("genetics",          sql.NVarChar,         req.body.genetics)
-      .input("rating",            sql.Int,              +req.body.rating || 0)
-      .input("cbd",               sql.Decimal,          req.body.cbd)
-      .input("thc",               sql.Decimal,          req.body.thc)
-      .input("price",             sql.Money,            req.body.price)
-      .input("isAvailable",       sql.Bit,              !!+req.body.isAvailable)
-      .input("manufacturerId",    sql.UniqueIdentifier, req.body.manufacturerId || null)
-      .input("originId",          sql.UniqueIdentifier, req.body.originId || null)
-      .input("rayId",             sql.UniqueIdentifier, req.body.rayId || null)
-      .input("aboutFlower",       sql.NVarChar,         req.body.aboutFlower)
-      .input("growerDescription", sql.NVarChar,         req.body.growerDescription)
-      .input("defaultImageIndex", sql.Int,              0)
-      .input("imagePath",         sql.NVarChar(sql.MAX), JSON.stringify(images));
-
-    await r.query(`
-      UPDATE tblProducts SET
-        Name               = @name,
-        SaleName           = @saleName,
-        Genetics           = @genetics,
-        Rating             = @rating,
-        CBD                = @cbd,
-        THC                = @thc,
-        Price              = @price,
-        IsAvailable        = @isAvailable,
-        ManufacturerId     = @manufacturerId,
-        OriginId           = @originId,
-        RayId              = @rayId,
-        AboutFlower        = @aboutFlower,
-        GrowerDescription  = @growerDescription,
-        DefaultImageIndex  = @defaultImageIndex,
-        ImagePath          = @imagePath
-      WHERE Id = @id
-    `);
-
-    /* ---------- refresh tags ---------- */
+    /* 1) update main row ---------------------------------------------------- */
     await new sql.Request(trx)
-      .input("pid", sql.UniqueIdentifier, id)
+      .input("id",                sql.UniqueIdentifier, productId)
+      .input("name",              sql.NVarChar,         name)
+      .input("saleName",          sql.NVarChar,         saleName)
+      .input("genetics",          sql.NVarChar,         genetics)
+      .input("rating",            sql.Int,              rating)
+      .input("cbd",               sql.Decimal,          cbd)
+      .input("thc",               sql.Decimal,          thc)
+      .input("price",             sql.Money,            price)
+      .input("isAvailable",       sql.Bit,              !!+isAvailable)
+      .input("manufacturerId",    sql.UniqueIdentifier, manufacturerId || null)
+      .input("originId",          sql.UniqueIdentifier, originId       || null)
+      .input("rayId",             sql.UniqueIdentifier, rayId          || null)
+      .input("aboutFlower",       sql.NVarChar,         aboutFlower)
+      .input("growerDescription", sql.NVarChar,         growerDescription)
+      .input("defaultImageIndex", sql.Int,              defaultImageIndex)
+      .input("imagePath",         sql.NVarChar(sql.MAX), JSON.stringify(images))
+      .query(`
+        UPDATE tblProducts SET
+          Name               = @name,
+          SaleName           = @saleName,
+          Genetics           = @genetics,
+          Rating             = @rating,
+          CBD                = @cbd,
+          THC                = @thc,
+          Price              = @price,
+          IsAvailable        = @isAvailable,
+          ManufacturerId     = @manufacturerId,
+          OriginId           = @originId,
+          RayId              = @rayId,
+          AboutFlower        = @aboutFlower,
+          GrowerDescription  = @growerDescription,
+          DefaultImageIndex  = @defaultImageIndex,
+          ImagePath          = @imagePath
+        WHERE Id = @id
+      `);
+
+    /* 2) clear existing tags ---------------------------------------------- */
+    await new sql.Request(trx)
+      .input("pid", sql.UniqueIdentifier, productId)
       .query(`
         DELETE FROM tblProductEffect  WHERE ProductId = @pid;
         DELETE FROM tblProductTerpene WHERE ProductId = @pid;
         DELETE FROM tblProductTaste   WHERE ProductId = @pid;
       `);
 
-    await insertMany(trx, "tblProductEffect",  "EffectId",
-                     id, toArray(req.body.effectFilter),  "e");
-    await insertMany(trx, "tblProductTerpene", "TerpeneId",
-                     id, toArray(req.body.terpeneFilter), "t");
-    await insertMany(trx, "tblProductTaste",   "TasteId",
-                     id, toArray(req.body.tasteFilter),   "s");
+    /* 3) re-insert current selections ------------------------------------- */
+    await insertMany(trx, "tblProductEffect",  "EffectId",  productId, toIdArray(req.body.effectFilter),  "e");
+    await insertMany(trx, "tblProductTerpene", "TerpeneId", productId, toIdArray(req.body.terpeneFilter), "t");
+    await insertMany(trx, "tblProductTaste",   "TasteId",   productId, toIdArray(req.body.tasteFilter),   "s");
 
     await trx.commit();
     res.json({ message: "Product updated" });
@@ -214,11 +250,10 @@ exports.updateProduct = async (req, res) => {
   }
 };
 
-/* ------------------------------------------------------------------ */
-/*  DELETE                                                            */
-/* ------------------------------------------------------------------ */
+/** DELETE /Products/:id – remove product + tags */
 exports.deleteProduct = async (req, res) => {
   const trx = new sql.Transaction(getPool());
+
   try {
     await trx.begin();
 
