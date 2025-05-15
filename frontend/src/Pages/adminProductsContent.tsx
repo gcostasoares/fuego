@@ -16,7 +16,7 @@ type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteI
 type Product = {
   id: string;
   name: string;
-  price: number;              // now guaranteed number
+  price: number;
   thc: number;
   cbd: number;
   genetics: string;
@@ -96,6 +96,10 @@ export default function AdminProductsContent() {
   const [selTerp,  setSelTerp]  = useState<string[]>([]);
   const [selTaste, setSelTaste] = useState<string[]>([]);
 
+  /* ---------- refs ---------- */
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  /* ---------- constants ---------- */
   const API_URL        = "https://fuego-ombm.onrender.com";
   const headers        = { "x-admin-key": localStorage.getItem("adminKey") || "" };
   const priceFormatter = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -117,17 +121,15 @@ export default function AdminProductsContent() {
       const { data } = await apiClient.get("/Products", { headers });
 
       const list: Product[] = (data as any[]).map(p => {
-        /* ensure numeric price & parsed imageUrl */
-        const price = Number(p.price) || 0;
         let imgs: string[] = [];
         try {
           if (p.imageUrl) {
             imgs = JSON.parse(String(p.imageUrl).replace(/\\/g, ""));
             if (!Array.isArray(imgs)) imgs = [];
           }
-        } catch { /* keep [] */ }
+        } catch { /* ignore */ }
 
-        return { ...p, price, imageUrl: imgs };
+        return { ...p, price: Number(p.price) || 0, imageUrl: imgs };
       });
 
       setProducts(list);
@@ -174,7 +176,7 @@ export default function AdminProductsContent() {
       setSelected(prod);
       setForm({
         name: prod.name,
-        price: prod.price ?? 0,                             // guard added
+        price: prod.price ?? 0,
         thc: prod.thc,
         cbd: prod.cbd,
         genetics: prod.genetics,
