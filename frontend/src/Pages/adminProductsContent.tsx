@@ -21,9 +21,9 @@ type Product = {
   thc: number;
   cbd: number;
   genetics: string;
-  imageUrl: string[];           // [profile, ...gallery]
+  imageUrl: string[];
   isAvailable: string;
-  manufacturer: string | null;  // display label
+  manufacturer: string | null;
   origin: string | null;
   ray: string | null;
   manufacturerId: string | null;
@@ -38,9 +38,9 @@ type Form = {
   cbd: number;
   genetics: string;
   isAvailable: boolean;
-  manufacturerId: string;
-  originId: string;
-  rayId: string;
+  manufacturerId: string;  // may be ""
+  originId: string;        // may be ""
+  rayId: string;           // may be ""
 };
 
 const defaultForm: Form = {
@@ -306,10 +306,15 @@ export default function AdminProductsContent() {
     fd.append("thc", String(form.thc));
     fd.append("cbd", String(form.cbd));
     fd.append("genetics", form.genetics);
-    fd.append("isAvailable", form.isAvailable ? "Available" : "Un-Available");
-    fd.append("manufacturerId", form.manufacturerId);
-    fd.append("originId", form.originId);
-    fd.append("rayId", form.rayId);
+
+    /* send '1' / '0' so mssql BIT accepts it */
+    fd.append("isAvailable", form.isAvailable ? "1" : "0");
+
+    /* only attach IDs if the user actually picked something */
+    if (form.manufacturerId) fd.append("manufacturerId", form.manufacturerId);
+    if (form.originId)       fd.append("originId",       form.originId);
+    if (form.rayId)          fd.append("rayId",          form.rayId);
+
     fd.append("rating", "0");
 
     if (removeProfile && existingProfile) fd.append("removeImages", existingProfile);
