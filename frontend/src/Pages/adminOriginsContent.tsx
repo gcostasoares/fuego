@@ -44,19 +44,26 @@ export default function AdminOriginsContent() {
   const modalRef                       = useRef<HTMLDivElement>(null);
 
   /* ─────────────── fetch list ─────────────── */
-  const fetchOrigins = async () => {
-    setLoading(true);
-    try {
-      // server routes (admin) are singular → "/Origins"
-      const { data } = await apiClient.get<Origin[]>("/Origins", { headers: HEADERS });
-      setOrigins(data);
-    } catch (err) {
-      console.error("Error fetching origins:", err);
-      alert("Fehler beim Laden der Herkunftsländer");
-    } finally {
-      setLoading(false);
-    }
-  };
+ const fetchOrigins = async () => {
+  setLoading(true);
+  try {
+    const { data } = await apiClient.get("/Origins", { headers: HEADERS });
+
+    // convert MSSQL column names → camelCase
+    const normalized: Origin[] = data.map((row: any) => ({
+      id:        row.Id,
+      name:      row.Name,
+      imagePath: row.ImagePath ?? null,
+    }));
+
+    setOrigins(normalized);
+  } catch (err) {
+    console.error("Error fetching origins:", err);
+    alert("Fehler beim Laden der Herkunftsländer");
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => { fetchOrigins(); }, []);
 
