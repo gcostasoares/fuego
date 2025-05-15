@@ -8,14 +8,12 @@ import {
   DropResult,
 } from "react-beautiful-dnd";
 
-// format list prices as “9,64”
-const priceFormatter = new Intl.NumberFormat("de-DE", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-type Lookup = { id: string; name: string };
+/* ------------------------------------------------------------------ */
+/* --------------------------- type helpers ------------------------- */
+/* ------------------------------------------------------------------ */
+type Lookup = { id: string; title: string; name: string };
 type JT     = { productId: string; effectId?: string; terpeneId?: string; tasteId?: string };
+
 type Product = {
   id: string;
   name: string;
@@ -23,12 +21,16 @@ type Product = {
   thc: number;
   cbd: number;
   genetics: string;
-  imageUrl: string[];       // [profile, ...gallery]
+  imageUrl: string[];           // [profile, ...gallery]
   isAvailable: string;
-  manufacturer: string | null;
+  manufacturer: string | null;  // display label
   origin: string | null;
   ray: string | null;
+  manufacturerId: string | null;
+  originId: string | null;
+  rayId: string | null;
 };
+
 type Form = {
   name: string;
   price: number;
@@ -40,6 +42,7 @@ type Form = {
   originId: string;
   rayId: string;
 };
+
 const defaultForm: Form = {
   name: "",
   price: 0,
@@ -51,6 +54,7 @@ const defaultForm: Form = {
   originId: "",
   rayId: "",
 };
+
 type GalleryItem = {
   id: string;
   src: string;
@@ -58,48 +62,63 @@ type GalleryItem = {
   existingFilename?: string;
 };
 
+/* ------------------------------------------------------------------ */
+/* ---------------------------- component --------------------------- */
+/* ------------------------------------------------------------------ */
 export default function AdminProductsContent() {
-  const [products, setProducts]   = useState<Product[]>([]);
+  /* ---------- state ---------- */
+  const [products,      setProducts]      = useState<Product[]>([]);
   const [manufacturers, setManufacturers] = useState<Lookup[]>([]);
-  const [origins, setOrigins]     = useState<Lookup[]>([]);
-  const [rays, setRays]           = useState<Lookup[]>([]);
-  const [strains, setStrains]     = useState<Lookup[]>([]);
+  const [origins,       setOrigins]       = useState<Lookup[]>([]);
+  const [rays,          setRays]          = useState<Lookup[]>([]);
+  const [strains,       setStrains]       = useState<Lookup[]>([]);
 
-  const [effects, setEffects]     = useState<Lookup[]>([]);
-  const [terpenes, setTerpenes]   = useState<Lookup[]>([]);
-  const [tastes, setTastes]       = useState<Lookup[]>([]);
+  const [effects,       setEffects]       = useState<Lookup[]>([]);
+  const [terpenes,      setTerpenes]      = useState<Lookup[]>([]);
+  const [tastes,        setTastes]        = useState<Lookup[]>([]);
 
-  const [prodEff, setProdEff]     = useState<JT[]>([]);
-  const [prodTerp, setProdTerp]   = useState<JT[]>([]);
-  const [prodTaste, setProdTaste] = useState<JT[]>([]);
+  const [prodEff,       setProdEff]       = useState<JT[]>([]);
+  const [prodTerp,      setProdTerp]      = useState<JT[]>([]);
+  const [prodTaste,     setProdTaste]     = useState<JT[]>([]);
 
-  const [open, setOpen]         = useState(false);
-  const [mode, setMode]         = useState<"add"|"edit">("add");
-  const [selected, setSelected] = useState<Product|null>(null);
-  const [form, setForm]         = useState<Form>(defaultForm);
+  const [open,          setOpen]          = useState(false);
+  const [mode,          setMode]          = useState<"add" | "edit">("add");
+  const [selected,      setSelected]      = useState<Product | null>(null);
+  const [form,          setForm]          = useState<Form>(defaultForm);
 
-  const [existingProfile, setExistingProfile] = useState<string|null>(null);
-  const [removeProfile, setRemoveProfile]     = useState(false);
-  const [profileFile, setProfileFile]         = useState<File|null>(null);
-  const [profilePreview, setProfilePreview]   = useState<string|null>(null);
+  const [existingProfile, setExistingProfile] = useState<string | null>(null);
+  const [removeProfile,   setRemoveProfile]   = useState(false);
+  const [profileFile,     setProfileFile]     = useState<File | null>(null);
+  const [profilePreview,  setProfilePreview]  = useState<string | null>(null);
 
   const [galleryItems, setGalleryItems]   = useState<GalleryItem[]>([]);
   const [removeGallery, setRemoveGallery] = useState<string[]>([]);
 
-  const [selEff, setSelEff]     = useState<string[]>([]);
-  const [selTerp, setSelTerp]   = useState<string[]>([]);
+  const [selEff,   setSelEff]   = useState<string[]>([]);
+  const [selTerp,  setSelTerp]  = useState<string[]>([]);
   const [selTaste, setSelTaste] = useState<string[]>([]);
 
-  const modalRef = useRef<HTMLDivElement>(null);
-  const API_URL  = "https://fuego-ombm.onrender.com";
-  const headers  = { "x-admin-key": localStorage.getItem("adminKey") || "" };
+  const modalRef          = useRef<HTMLDivElement>(null);
+  const API_URL           = "https://fuego-ombm.onrender.com";
+  const headers           = { "x-admin-key": localStorage.getItem("adminKey") || "" };
+  const priceFormatter    = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+  /* ---------- lifecycle ---------- */
   useEffect(() => {
     fetchProducts();
     fetchProductFilters();
     fetchJunctions();
   }, []);
 
+  /* ---------- helpers ---------- */
+  const normalise = (arr: any[]): Lookup[] =>
+    arr.map((o) => ({
+      id: o.id,
+      title: o.title ?? o.name,
+      name: o.name ?? o.title,
+    }));
+
+  /* ---------- data fetchers ---------- */
   async function fetchProducts() {
     try {
       const res = await apiClient.get("/products", {
@@ -109,8 +128,8 @@ export default function AdminProductsContent() {
       const list: Product[] = Array.isArray(res.data.products)
         ? res.data.products
         : Array.isArray(res.data)
-          ? res.data
-          : [];
+        ? res.data
+        : [];
       setProducts(list);
     } catch (err) {
       console.error("fetchProducts error:", err);
@@ -121,13 +140,14 @@ export default function AdminProductsContent() {
   async function fetchProductFilters() {
     try {
       const res = await apiClient.get("/api/product-filters", { headers });
-      setManufacturers(res.data.manufacturers);
-      setOrigins(res.data.origins);
-      setRays(res.data.rays);
-      setStrains(res.data.strains);
-      setEffects(res.data.effects);
-      setTerpenes(res.data.terpenes);
-      setTastes(res.data.tastes);
+
+      setManufacturers(normalise(res.data.manufacturers));
+      setOrigins(normalise(res.data.origins));
+      setRays(normalise(res.data.rays));
+      setStrains(normalise(res.data.strains));
+      setEffects(normalise(res.data.effects));
+      setTerpenes(normalise(res.data.terpenes));
+      setTastes(normalise(res.data.tastes));
     } catch (err) {
       console.error("fetchProductFilters error:", err);
     }
@@ -136,9 +156,9 @@ export default function AdminProductsContent() {
   async function fetchJunctions() {
     try {
       const [pe, pt, pu] = await Promise.all([
-        apiClient.get("/producteffects",  { headers }),
+        apiClient.get("/producteffects", { headers }),
         apiClient.get("/productterpenes", { headers }),
-        apiClient.get("/producttastes",   { headers }),
+        apiClient.get("/producttastes", { headers }),
       ]);
       setProdEff(pe.data);
       setProdTerp(pt.data);
@@ -148,20 +168,22 @@ export default function AdminProductsContent() {
     }
   }
 
+  /* ---------- modal handlers ---------- */
   const openModal = (prod?: Product) => {
     if (prod) {
+      /* edit mode */
       setMode("edit");
       setSelected(prod);
       setForm({
         name: prod.name,
         price: +prod.price.toFixed(2),
-        thc:   prod.thc,
-        cbd:   prod.cbd,
+        thc: prod.thc,
+        cbd: prod.cbd,
         genetics: prod.genetics,
         isAvailable: prod.isAvailable === "Available",
-        manufacturerId: prod.manufacturer || "",
-        originId: prod.origin || "",
-        rayId: prod.ray || "",
+        manufacturerId: prod.manufacturerId || "",
+        originId: prod.originId || "",
+        rayId: prod.rayId || "",
       });
 
       const [profile, ...gallery] = prod.imageUrl;
@@ -171,7 +193,7 @@ export default function AdminProductsContent() {
       setProfilePreview(profile ? `${API_URL}/images/Products/${profile}` : null);
 
       setGalleryItems(
-        gallery.map(fn => ({
+        gallery.map((fn) => ({
           id: fn,
           src: `${API_URL}/images/Products/${fn}`,
           existingFilename: fn,
@@ -179,17 +201,20 @@ export default function AdminProductsContent() {
       );
       setRemoveGallery([]);
 
-      setSelEff  (prodEff .filter(r => r.productId === prod.id).map(r => r.effectId!));
-      setSelTerp (prodTerp.filter(r => r.productId === prod.id).map(r => r.terpeneId!));
-      setSelTaste(prodTaste.filter(r => r.productId === prod.id).map(r => r.tasteId!));
+      setSelEff(prodEff.filter((r) => r.productId === prod.id).map((r) => r.effectId!));
+      setSelTerp(prodTerp.filter((r) => r.productId === prod.id).map((r) => r.terpeneId!));
+      setSelTaste(prodTaste.filter((r) => r.productId === prod.id).map((r) => r.tasteId!));
     } else {
+      /* add mode */
       setMode("add");
       setSelected(null);
       setForm(defaultForm);
+
       setExistingProfile(null);
       setRemoveProfile(false);
       setProfileFile(null);
       setProfilePreview(null);
+
       setGalleryItems([]);
       setRemoveGallery([]);
       setSelEff([]);
@@ -201,9 +226,10 @@ export default function AdminProductsContent() {
 
   const closeModal = () => setOpen(false);
 
-  function onChangeForm(e: React.ChangeEvent<HTMLInputElement|HTMLSelectElement>) {
+  /* ---------- form helpers ---------- */
+  function onChangeForm(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value, type, checked } = e.target as any;
-    setForm(f => ({
+    setForm((f) => ({
       ...f,
       [name]: type === "checkbox" ? checked : value,
     }));
@@ -226,21 +252,21 @@ export default function AdminProductsContent() {
   function handleGallery(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
     const arr = Array.from(e.target.files);
-    setGalleryItems(prev => [
+    setGalleryItems((prev) => [
       ...prev,
-      ...arr.map(file => ({
+      ...arr.map((file) => ({
         id: URL.createObjectURL(file),
         src: URL.createObjectURL(file),
         file,
-      }))
+      })),
     ]);
     e.target.value = "";
   }
 
   function removeGalleryItem(i: number) {
-    setGalleryItems(prev => {
+    setGalleryItems((prev) => {
       const item = prev[i];
-      if (item.existingFilename) setRemoveGallery(r => [...r, item.existingFilename!]);
+      if (item.existingFilename) setRemoveGallery((r) => [...r, item.existingFilename!]);
       const c = [...prev];
       c.splice(i, 1);
       return c;
@@ -267,17 +293,18 @@ export default function AdminProductsContent() {
   }
 
   function removeTag(id: string, setter: React.Dispatch<React.SetStateAction<string[]>>) {
-    setter(prev => prev.filter(x => x !== id));
+    setter((prev) => prev.filter((x) => x !== id));
   }
 
+  /* ---------- submit / delete ---------- */
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const fd = new FormData();
 
     fd.append("name", form.name);
     fd.append("price", String(form.price));
-    fd.append("thc",   String(form.thc));
-    fd.append("cbd",   String(form.cbd));
+    fd.append("thc", String(form.thc));
+    fd.append("cbd", String(form.cbd));
     fd.append("genetics", form.genetics);
     fd.append("isAvailable", form.isAvailable ? "Available" : "Un-Available");
     fd.append("manufacturerId", form.manufacturerId);
@@ -286,25 +313,25 @@ export default function AdminProductsContent() {
     fd.append("rating", "0");
 
     if (removeProfile && existingProfile) fd.append("removeImages", existingProfile);
-    removeGallery.forEach(fn => fd.append("removeImages", fn));
+    removeGallery.forEach((fn) => fd.append("removeImages", fn));
 
     if (profileFile) fd.append("images", profileFile);
-    galleryItems.forEach(item => {
+    galleryItems.forEach((item) => {
       if (item.file) fd.append("images", item.file);
     });
 
     const order: string[] = [];
     if (profileFile) order.push("__NEW__");
     else if (existingProfile) order.push(existingProfile);
-    galleryItems.forEach(item => {
+    galleryItems.forEach((item) => {
       if (item.file) order.push("__NEW__");
       else if (item.existingFilename) order.push(item.existingFilename);
     });
     fd.append("imageOrder", JSON.stringify(order));
 
-    selEff.forEach(id => fd.append("effectFilter", id));
-    selTerp.forEach(id => fd.append("terpeneFilter", id));
-    selTaste.forEach(id => fd.append("tasteFilter", id));
+    selEff.forEach((id) => fd.append("effectFilter", id));
+    selTerp.forEach((id) => fd.append("terpeneFilter", id));
+    selTaste.forEach((id) => fd.append("tasteFilter", id));
 
     const cfg = { headers: { ...headers, "Content-Type": "multipart/form-data" } };
     if (mode === "add") {
