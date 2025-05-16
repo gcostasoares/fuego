@@ -8,7 +8,6 @@ import apiClient from "@/Apis/apiService";
 import { Product } from "@/types/product";
 import { Categories } from "@/types/categories";
 
-/* ───────── gallery payload ───────── */
 interface Gallery {
   id:               string;
   title:            string;
@@ -22,11 +21,8 @@ interface Gallery {
   slideProductIds:  string[] | string;
 }
 
-/* ───────── component props ───────── */
 interface Props {
-  /* if provided → gallery mode */
   galleryId?: string;
-  /* plain “home” mode props */
   products?: Product[];
   categories?: Categories[];
   as?: React.ElementType;
@@ -46,21 +42,31 @@ export const ProductSliderSection: React.FC<Props> = ({
   const [isGridActive, setIsGridActive]   = useState(false);
   const [isSlideActive, setIsSlideActive] = useState(false);
 
-  /* new: button state */
   const [isButton, setIsButton]           = useState(false);
   const [buttonLabel, setButtonLabel]     = useState("");
   const [buttonLink,  setButtonLink]      = useState("");
 
-  /* helper */
   const parseIds = (ids: string[] | string): string[] => {
     if (Array.isArray(ids)) return ids;
     try { return JSON.parse(ids); }
-    catch { return ids.split(",").map(s=>s.trim()).filter(Boolean); }
+    catch { return ids.split(",").map(s => s.trim()).filter(Boolean); }
   };
 
   useEffect(() => {
-    /* HOME mode */
-    const loadHome = () => {
+    /* reset products to avoid “random” leftovers */
+    const clearDisplay = () => {
+      setGridProducts([]);
+      setSlideProducts([]);
+      setIsGridActive(false);
+      setIsSlideActive(false);
+      setIsButton(false);
+      setButtonLabel("");
+      setButtonLink("");
+    };
+
+    /* HOME MODE ---------------------------------------------------------------- */
+    const useHome = () => {
+      clearDisplay();
       if (!homeProducts || !homeCategories) return;
       setGridProducts(homeProducts.slice(0, 6));
       setSlideProducts(homeProducts.slice(0, 4));
@@ -69,11 +75,13 @@ export const ProductSliderSection: React.FC<Props> = ({
       setCategories(homeCategories);
       setIsGridActive(true);
       setIsSlideActive(true);
-      setIsButton(false);
     };
 
-    /* GALLERY mode */
+    /* GALLERY MODE -------------------------------------------------------------- */
     const loadGallery = async (id: string) => {
+      clearDisplay();
+
+      /* 1) meta row */
       const { data: gal } = await apiClient.get<Gallery>(`/gallery/${id}`);
 
       setHeadingTitle(gal.title);
@@ -81,34 +89,43 @@ export const ProductSliderSection: React.FC<Props> = ({
       setIsGridActive(gal.isGrid);
       setIsSlideActive(gal.isSlide);
 
-      setIsButton(gal.isButton);
-      setButtonLabel(gal.buttonLabel);
-      setButtonLink(gal.buttonLink);
+      /* handle button even if isButton is missing */
+      const buttonEnabled =
+        "isButton" in gal
+          ? !!gal.isButton
+          : !!gal.buttonLabel || !!gal.buttonLink;
 
-      /* load product catalogue once and filter */
+      setIsButton(buttonEnabled);
+      setButtonLabel(gal.buttonLabel ?? "");
+      setButtonLink(gal.buttonLink  ?? "");
+
+      /* 2) full product catalogue once */
       const { data: prodPage } = await apiClient.get<{ products: Product[] }>(
         "/products", { params: { pageSize: 1000 } }
       );
       const all = prodPage.products;
 
+      /* 3) map IDs */
       if (gal.isGrid) {
         const ids = parseIds(gal.gridProductIds);
-        setGridProducts(ids.map(id=>all.find(p=>p.id===id)!).filter(Boolean));
+        setGridProducts(ids.map(id => all.find(p => p.id === id)!).filter(Boolean));
       }
       if (gal.isSlide) {
         const ids = parseIds(gal.slideProductIds);
-        setSlideProducts(ids.map(id=>all.find(p=>p.id===id)!).filter(Boolean));
+        setSlideProducts(ids.map(id => all.find(p => p.id === id)!).filter(Boolean));
       }
 
-      /* categories for fallback filter buttons */
-      const { data: home } = await apiClient.get<{ categories: Categories[] }>("/api/home");
-      setCategories(home.categories);
+      /* 4) categories (fallback only) */
+      if (!buttonEnabled) {
+        const { data: h } = await apiClient.get<{ categories: Categories[] }>("/api/home");
+        setCategories(h.categories);
+      }
     };
 
-    galleryId ? loadGallery(galleryId) : loadHome();
+    galleryId ? loadGallery(galleryId) : useHome();
   }, [galleryId, homeProducts, homeCategories]);
 
-  /* hide whole section if nothing to show */
+  /* hide section if literally nothing is active */
   if (!isGridActive && !isSlideActive) return null;
 
   /* ─────────────────────────── JSX ──────────────────────────── */
@@ -121,7 +138,7 @@ export const ProductSliderSection: React.FC<Props> = ({
           <p className="text-[1.7rem] text-gray-600 mb-6">{headingSubTitle}</p>
         )}
 
-        {/* button or category chips */}
+        {/* CTA button or category chips */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
           {isButton ? (
             <a
@@ -129,8 +146,8 @@ export const ProductSliderSection: React.FC<Props> = ({
               target={buttonLink ? "_blank" : undefined}
               rel="noopener noreferrer"
               className="text-[#1d4a34] border-[#333] text-xl px-10 py-2.5 uppercase
-                         bg-white rounded-full border font-bold
-                         hover:bg-[#333] hover:text-white transition-colors"
+                         bg-white rounded-full border font-bold transition
+                         hover:bg-[#333] hover:text-white"
             >
               {buttonLabel || "Mehr Produkte"}
             </a>
@@ -139,8 +156,8 @@ export const ProductSliderSection: React.FC<Props> = ({
               <button
                 key={c.id}
                 className="text-[#1d4a34] border-[#333] text-xl px-10 py-2.5 uppercase
-                           bg-white rounded-full border font-bold
-                           hover:bg-[#333] hover:text-white transition-colors"
+                           bg-white rounded-full border font-bold transition
+                           hover:bg-[#333] hover:text-white"
               >
                 {c.name}
               </button>
@@ -149,7 +166,7 @@ export const ProductSliderSection: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* slide + grid layout */}
+      {/* layout */}
       <Row className="pt-5 mt-4 grid">
         {isSlideActive && (
           <Col xl={3} lg={4} md={4} sm={12} xs={12}>
@@ -158,6 +175,7 @@ export const ProductSliderSection: React.FC<Props> = ({
             </Box>
           </Col>
         )}
+
         {isGridActive && (
           <Col
             xl={isSlideActive ? 9 : 12}
