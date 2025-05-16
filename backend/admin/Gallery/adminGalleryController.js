@@ -1,12 +1,11 @@
 /* backend/admin/Gallery/adminGalleryController.js
-   ──────────────────────────────────────────────────────────────────────────
-   Fully handles Description (button tag) while keeping every other route
-   unchanged. No database schema changes are required.
+   ──────────────────────────────────────────────────────────────────
+   Supports IsButton, ButtonLabel, ButtonLink (no other logic changed).
 */
 const sql          = require("mssql");
 const { v4: uuidv4 } = require("uuid");
 
-/* helpers ---------------------------------------------------------------- */
+/* helpers ------------------------------------------------------- */
 function getPool() {
   if (!global.pool) throw new Error("Database pool not initialized");
   return global.pool;
@@ -16,17 +15,15 @@ function parseJsonOrEmpty(str) {
   catch { return []; }
 }
 
-/* ───────────────── LIST & GET ─────────────────────────────────────────── */
-
-/** List all galleries */
+/* ───────────────── LIST & GET ────────────────────────────────── */
 exports.listGallery = async (req, res) => {
   try {
     const { recordset } = await getPool().request().query(`
       SELECT
         Id, Title, SubTitle, IsGrid, IsSlide,
-        Description, GridProductIds, SlideProductIds
-      FROM tblGallery
-      ORDER BY Title;
+        IsButton, ButtonLabel, ButtonLink,
+        GridProductIds, SlideProductIds
+      FROM tblGallery ORDER BY Title;
     `);
 
     res.json(
@@ -36,7 +33,9 @@ exports.listGallery = async (req, res) => {
         subTitle:        r.SubTitle,
         isGrid:          !!r.IsGrid,
         isSlide:         !!r.IsSlide,
-        description:     r.Description,                      // ← NEW
+        isButton:        !!r.IsButton,
+        buttonLabel:     r.ButtonLabel ?? "",
+        buttonLink:      r.ButtonLink  ?? "",
         gridProductIds:  parseJsonOrEmpty(r.GridProductIds),
         slideProductIds: parseJsonOrEmpty(r.SlideProductIds),
       }))
@@ -47,7 +46,6 @@ exports.listGallery = async (req, res) => {
   }
 };
 
-/** Get single gallery */
 exports.getGallery = async (req, res) => {
   try {
     const { id } = req.params;
@@ -56,9 +54,9 @@ exports.getGallery = async (req, res) => {
       .query(`
         SELECT
           Id, Title, SubTitle, IsGrid, IsSlide,
-          Description, GridProductIds, SlideProductIds
-        FROM tblGallery
-        WHERE Id = @id;
+          IsButton, ButtonLabel, ButtonLink,
+          GridProductIds, SlideProductIds
+        FROM tblGallery WHERE Id = @id;
       `);
 
     if (!recordset.length) {
@@ -71,7 +69,9 @@ exports.getGallery = async (req, res) => {
       subTitle:        r.SubTitle,
       isGrid:          !!r.IsGrid,
       isSlide:         !!r.IsSlide,
-      description:     r.Description,                      // ← NEW
+      isButton:        !!r.IsButton,
+      buttonLabel:     r.ButtonLabel ?? "",
+      buttonLink:      r.ButtonLink  ?? "",
       gridProductIds:  parseJsonOrEmpty(r.GridProductIds),
       slideProductIds: parseJsonOrEmpty(r.SlideProductIds),
     });
@@ -81,9 +81,7 @@ exports.getGallery = async (req, res) => {
   }
 };
 
-/* ───────────────── CREATE / UPDATE / DELETE ───────────────────────────── */
-
-/** Create gallery */
+/* ───────────────── CREATE / UPDATE / DELETE ─────────────────── */
 exports.createGallery = async (req, res) => {
   try {
     const id = uuidv4();
@@ -92,7 +90,9 @@ exports.createGallery = async (req, res) => {
       subTitle        = "",
       isGrid          = false,
       isSlide         = false,
-      description     = "",            // ← NEW
+      isButton        = false,
+      buttonLabel     = "",
+      buttonLink      = "",
       gridProductIds  = [],
       slideProductIds = [],
     } = req.body;
@@ -103,16 +103,20 @@ exports.createGallery = async (req, res) => {
       .input("subTitle",        sql.NVarChar,         subTitle)
       .input("isGrid",          sql.Bit,              isGrid)
       .input("isSlide",         sql.Bit,              isSlide)
-      .input("description",     sql.NVarChar,         description)          // ← NEW
+      .input("isButton",        sql.Bit,              isButton)
+      .input("buttonLabel",     sql.NVarChar,         buttonLabel)
+      .input("buttonLink",      sql.NVarChar,         buttonLink)
       .input("gridProductIds",  sql.NVarChar,         JSON.stringify(gridProductIds))
       .input("slideProductIds", sql.NVarChar,         JSON.stringify(slideProductIds))
       .query(`
         INSERT INTO tblGallery
           (Id, Title, SubTitle, IsGrid, IsSlide,
-           Description, GridProductIds, SlideProductIds)
+           IsButton, ButtonLabel, ButtonLink,
+           GridProductIds, SlideProductIds)
         VALUES
           (@id, @title, @subTitle, @isGrid, @isSlide,
-           @description, @gridProductIds, @slideProductIds);
+           @isButton, @buttonLabel, @buttonLink,
+           @gridProductIds, @slideProductIds);
       `);
 
     res.status(201).json({ message: "Gallery created", id });
@@ -122,7 +126,6 @@ exports.createGallery = async (req, res) => {
   }
 };
 
-/** Update gallery (title, flags, description) */
 exports.updateGallery = async (req, res) => {
   try {
     const { id } = req.params;
@@ -131,7 +134,9 @@ exports.updateGallery = async (req, res) => {
       subTitle    = "",
       isGrid      = false,
       isSlide     = false,
-      description = "",          // ← NEW
+      isButton    = false,
+      buttonLabel = "",
+      buttonLink  = "",
     } = req.body;
 
     await getPool().request()
@@ -140,14 +145,18 @@ exports.updateGallery = async (req, res) => {
       .input("subTitle",    sql.NVarChar,         subTitle)
       .input("isGrid",      sql.Bit,              isGrid)
       .input("isSlide",     sql.Bit,              isSlide)
-      .input("description", sql.NVarChar,         description)            // ← NEW
+      .input("isButton",    sql.Bit,              isButton)
+      .input("buttonLabel", sql.NVarChar,         buttonLabel)
+      .input("buttonLink",  sql.NVarChar,         buttonLink)
       .query(`
         UPDATE tblGallery
         SET Title       = @title,
             SubTitle    = @subTitle,
             IsGrid      = @isGrid,
             IsSlide     = @isSlide,
-            Description = @description
+            IsButton    = @isButton,
+            ButtonLabel = @buttonLabel,
+            ButtonLink  = @buttonLink
         WHERE Id = @id;
       `);
 
@@ -158,7 +167,6 @@ exports.updateGallery = async (req, res) => {
   }
 };
 
-/** Delete gallery (unchanged) */
 exports.deleteGallery = async (req, res) => {
   try {
     const { id } = req.params;
@@ -172,6 +180,4 @@ exports.deleteGallery = async (req, res) => {
   }
 };
 
-/* ── the GRID / SLIDE handlers below remain exactly as before ─────────── */
-/* … (listGrid, addGrid, removeGrid, orderGrid, listSlide, addSlide,      */
-/*     removeSlide, orderSlide)                                            */
+/* ── Grid / Slide handlers remain unchanged … */
