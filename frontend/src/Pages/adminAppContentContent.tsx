@@ -1,7 +1,6 @@
-/*  src/components/AdminAppContentContent.tsx
+/*  src/components/adminAppContentContent.tsx
     ─────────────────────────────────────────────────────────────────────────────
-    UI + behaviour modelled 1-for-1 on AdminCBDShopsContent.tsx – just without
-    image uploads. All helpers (loader, modal, etc.) kept the same look & feel.
+    Same UI/behaviour as before, now with key-mapping so back-end columns match.
 */
 
 import React, { useEffect, useState, useRef } from "react";
@@ -19,7 +18,7 @@ function FullPageLoader() {
   );
 }
 
-/* ─────────── types & defaults ────────── */
+/* ─────────── type definitions ────────── */
 interface AppContent {
   id: string;
   seoTitle: string;
@@ -35,9 +34,9 @@ interface AppContent {
   shopSectionDescription: string;
   shopSectionTitle: string;
 }
-
 type Form = Omit<AppContent, "id">;
 
+/* ─────────── helpers ────────── */
 const defaultForm: Form = {
   seoTitle: "",
   seoKeys: "",
@@ -53,6 +52,43 @@ const defaultForm: Form = {
   shopSectionTitle: "",
 };
 
+/** Convert DB row (Pascal-case) → camel-case used in the UI */
+function rowToCamel(r: any): AppContent {
+  return {
+    id:                     r.id ?? r.Id,
+    seoTitle:               r.seoTitle               ?? r.SeoTitle               ?? "",
+    seoKeys:                r.seoKeys                ?? r.SeoKeys                ?? "",
+    contentType:            r.contentType            ?? r.ContentType            ?? "",
+    url:                    r.url                    ?? r.URL                    ?? "",
+    seoDescription:         r.seoDescription         ?? r.SeoDescription         ?? "",
+    aboutTitle:             r.aboutTitle             ?? r.AboutTitle             ?? "",
+    aboutDescription:       r.aboutDescription       ?? r.AboutDescription       ?? "",
+    imprint:                r.imprint                ?? r.Imprint                ?? "",
+    dataProtection:         r.dataProtection         ?? r.DataProtection         ?? "",
+    cookiePolicy:           r.cookiePolicy           ?? r.CookiePolicy           ?? "",
+    shopSectionDescription: r.shopSectionDescription ?? r.ShopSectionDescription ?? "",
+    shopSectionTitle:       r.shopSectionTitle       ?? r.ShopSectionTitle       ?? "",
+  };
+}
+
+/** Convert camel-case form → Pascal-case payload expected by the API */
+function formToPayload(f: Form) {
+  return {
+    SeoTitle:               f.seoTitle,
+    SeoKeys:                f.seoKeys,
+    ContentType:            f.contentType,
+    URL:                     f.url,
+    SeoDescription:         f.seoDescription,
+    AboutTitle:             f.aboutTitle,
+    AboutDescription:       f.aboutDescription,
+    Imprint:                f.imprint,
+    DataProtection:         f.dataProtection,
+    CookiePolicy:           f.cookiePolicy,
+    ShopSectionDescription: f.shopSectionDescription,
+    ShopSectionTitle:       f.shopSectionTitle,
+  };
+}
+
 export default function AdminAppContentContent() {
   const [rows, setRows]         = useState<AppContent[]>([]);
   const [selected, setSelected] = useState<AppContent | null>(null);
@@ -65,29 +101,25 @@ export default function AdminAppContentContent() {
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
 
   /* ─── list -------------------------------------------------------- */
-const fetchContent = async () => {
-  setLoading(true);
-  try {
-    const res = await apiClient.get("/AppContent", {
-      headers: { "x-admin-key": ADMIN_KEY },
-    });
-
-    // API might return an array (public endpoint) or { appContent: [...] } (admin route)
-    const payload: any = res.data;
-    const list: AppContent[] = Array.isArray(payload)
-      ? payload
-      : payload.appContent ?? [];
-
-    setRows(list);
-  } catch (err) {
-    console.error(err);
-    alert("Fehler beim Laden der App-Inhalte");
-  } finally {
-    setLoading(false);
-  }
-};
-useEffect(() => { fetchContent(); }, []);
-
+  const fetchContent = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get("/AppContent", {
+        headers: { "x-admin-key": ADMIN_KEY },
+      });
+      const payload = res.data;
+      const listArr: any[] = Array.isArray(payload)
+        ? payload
+        : payload.appContent ?? [];
+      setRows(listArr.map(rowToCamel));
+    } catch (err) {
+      console.error(err);
+      alert("Fehler beim Laden der App-Inhalte");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { fetchContent(); }, []);
 
   /* ─── modal helpers ---------------------------------------------- */
   const openModal = (row?: AppContent) => {
@@ -115,12 +147,13 @@ useEffect(() => { fetchContent(); }, []);
     e.preventDefault();
     setLoading(true);
     try {
+      const payload = formToPayload(form);
       if (mode === "add") {
-        await apiClient.post("/AppContent", form, {
+        await apiClient.post("/AppContent", payload, {
           headers: { "x-admin-key": ADMIN_KEY },
         });
       } else {
-        await apiClient.put(`/AppContent/${selected!.id}`, form, {
+        await apiClient.put(`/AppContent/${selected!.id}`, payload, {
           headers: { "x-admin-key": ADMIN_KEY },
         });
       }
@@ -170,7 +203,7 @@ useEffect(() => { fetchContent(); }, []);
               className="cursor-pointer text-blue-600 hover:underline"
               onClick={() => openModal(r)}
             >
-              {r.seoTitle || r.shopSectionTitle || r.id.substring(0, 8)}
+              {r.seoTitle || r.shopSectionTitle || r.id.slice(0, 8)}
             </span>
             <Button variant="destructive" onClick={() => onDelete(r.id)}>
               Löschen
@@ -256,8 +289,7 @@ useEffect(() => { fetchContent(); }, []);
         </div>
       )}
 
-      {loading && <FullPageLoader />} {/* loader overlay */}
+      {loading && <FullPageLoader />}
     </div>
   );
 }
-
