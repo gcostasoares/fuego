@@ -1,25 +1,27 @@
-// backend/admin/Gallery/adminGalleryRoutes.js
-const express     = require("express");
-const controllers = require("./adminGalleryController");
-const router      = express.Router();
+/* admin/Gallery/adminGalleryRoutes.js
+   ────────────────────────────────────────────────────────────────── */
+const express = require("express");
+const ctrl    = require("./adminGalleryController");
 
-// Gallery metadata
-router.get(   "/",    controllers.listGallery);
-router.get(   "/:id", controllers.getGallery);
-router.post(  "/",    controllers.createGallery);
-router.put(   "/:id", controllers.updateGallery);
-router.delete("/:id", controllers.deleteGallery);
+const router = express.Router();
 
-// Grid‐slot endpoints
-router.get(   "/:id/grid/products",          controllers.listGrid);
-router.post(  "/:id/grid/products",          controllers.addGrid);
-router.delete("/:id/grid/products/:productId", controllers.removeGrid);
-router.put(   "/:id/grid/products/order",    controllers.orderGrid);
+/* ─── main CRUD ─────────────────────────────────────────────── */
+router.get(   "/",      ctrl.listGallery);      // list all
+router.get(   "/:id",   ctrl.getGallery);       // get one
+router.post(  "/",      ctrl.createGallery);    // create
+router.put(   "/:id",   ctrl.updateGallery);    // update
+router.delete("/:id",   ctrl.deleteGallery);    // delete
 
-// Slide‐slot endpoints
-router.get(   "/:id/slide/products",          controllers.listSlide);
-router.post(  "/:id/slide/products",          controllers.addSlide);
-router.delete("/:id/slide/products/:productId", controllers.removeSlide);
-router.put(   "/:id/slide/products/order",    controllers.orderSlide);
+/* ─── GRID helpers ──────────────────────────────────────────── */
+router.get(   "/:id/grid/products",               ctrl.listGrid);
+router.post(  "/:id/grid/products",               ctrl.addGrid);
+router.delete("/:id/grid/products/:productId",    ctrl.removeGrid);
+router.put(   "/:id/grid/products/order",         ctrl.orderGrid);
+
+/* ─── SLIDE helpers ─────────────────────────────────────────── */
+router.get(   "/:id/slide/products",              ctrl.listSlide);
+router.post(  "/:id/slide/products",              ctrl.addSlide);
+router.delete("/:id/slide/products/:productId",   ctrl.removeSlide);
+router.put(   "/:id/slide/products/order",        ctrl.orderSlide);
 
 module.exports = router;
