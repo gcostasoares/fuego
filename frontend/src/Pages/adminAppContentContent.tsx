@@ -65,23 +65,29 @@ export default function AdminAppContentContent() {
   const ADMIN_KEY = localStorage.getItem("adminKey") || "";
 
   /* ─── list -------------------------------------------------------- */
-  const fetchContent = async () => {
-    setLoading(true);
-    try {
-      const res = await apiClient.get<{ appContent: any[] }>("/AppContent", {
-        headers: { "x-admin-key": ADMIN_KEY },
-      });
-      setRows(res.data.appContent as AppContent[]);
-    } catch (err) {
-      console.error(err);
-      alert("Fehler beim Laden der App-Inhalte");
-    } finally {
-      setLoading(false);
-    }
-  };
-  useEffect(() => {
-    fetchContent();
-  }, []);
+const fetchContent = async () => {
+  setLoading(true);
+  try {
+    const res = await apiClient.get("/AppContent", {
+      headers: { "x-admin-key": ADMIN_KEY },
+    });
+
+    // API might return an array (public endpoint) or { appContent: [...] } (admin route)
+    const payload: any = res.data;
+    const list: AppContent[] = Array.isArray(payload)
+      ? payload
+      : payload.appContent ?? [];
+
+    setRows(list);
+  } catch (err) {
+    console.error(err);
+    alert("Fehler beim Laden der App-Inhalte");
+  } finally {
+    setLoading(false);
+  }
+};
+useEffect(() => { fetchContent(); }, []);
+
 
   /* ─── modal helpers ---------------------------------------------- */
   const openModal = (row?: AppContent) => {
