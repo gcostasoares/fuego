@@ -1,4 +1,3 @@
-// src/Pages/AdminDashboard.tsx
 import React, { useState } from 'react'
 import AdminDoctorsContent from './adminDoctorsContent'
 import AdminPharmaciesContent from './adminPharmaciesContent'
@@ -15,6 +14,7 @@ import AdminUsersContent from './adminUsersContent'
 import AdminOriginsContent from './adminOriginsContent'
 import AdminManufacturersContent from './adminManufacturersContent'
 import AdminSaleProductsContent from './adminSaleProductsContent'
+import AdminAppContentContent from './adminAppContentContent'  // ← new
 
 type Section =
   | 'products'
@@ -28,6 +28,7 @@ type Section =
   | 'partnerlogos'
   | 'gallery'
   | 'shopdescriptions'
+  | 'appcontent'      // ← new
   | 'users'
   | 'origins'
   | 'manufacturers'
@@ -72,6 +73,7 @@ const AdminDashboard: React.FC = () => {
       case 'partnerlogos':     return <AdminPartnerLogosContent />
       case 'gallery':          return <AdminGalleryContent />
       case 'shopdescriptions': return <AdminShopDescriptionsContent />
+      case 'appcontent':       return <AdminAppContentContent />   // ← new
       case 'users':            return <AdminUsersContent />
       case 'origins':          return <AdminOriginsContent />
       case 'manufacturers':    return <AdminManufacturersContent />
@@ -113,6 +115,7 @@ const AdminDashboard: React.FC = () => {
             {navItem('partnerlogos', 'Partner Logos')}
             {navItem('gallery', 'Gallery')}
             {navItem('shopdescriptions', 'Shop Descriptions')}
+            {navItem('appcontent', 'App Content')} {/* ← new */}
             {navItem('users', 'Users')}
             {navItem('origins', 'Origins')}
             {navItem('manufacturers', 'Manufacturers')}
