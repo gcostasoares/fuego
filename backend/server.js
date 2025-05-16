@@ -1590,11 +1590,14 @@ app.get("/gallery", async (req, res) => {
         Id             AS id,
         Title          AS title,
         SubTitle       AS subTitle,
-      IsGrid         AS isGrid,
-       IsSlide        AS isSlide,
+        IsGrid         AS isGrid,
+        IsSlide        AS isSlide,
+        IsButton       AS isButton,       -- NEW
+        ButtonLabel    AS buttonLabel,    -- NEW
+        ButtonLink     AS buttonLink,     -- NEW
         Description    AS description,
         ImagePath      AS imagePath,
-        GridProductIds AS gridProductIds,
+        GridProductIds  AS gridProductIds,
         SlideProductIds AS slideProductIds
       FROM tblGallery
       ORDER BY Title;
@@ -1604,8 +1607,11 @@ app.get("/gallery", async (req, res) => {
       id:              g.id,
       title:           g.title,
       subTitle:        g.subTitle,
-     isGrid:         !!g.isGrid,
-    isSlide:        !!g.isSlide,
+      isGrid:          !!g.isGrid,
+      isSlide:         !!g.isSlide,
+      isButton:        !!g.isButton,                 // NEW
+      buttonLabel:     g.buttonLabel ?? "",          // NEW
+      buttonLink:      g.buttonLink  ?? "",          // NEW
       description:     g.description,
       imagePath:       g.imagePath,
       gridProductIds:  JSON.parse(g.gridProductIds  || "[]"),
@@ -1619,7 +1625,7 @@ app.get("/gallery", async (req, res) => {
   }
 });
 
-// ── Public: get one gallery by ID ──────────────────────────────
+/* get ONE gallery by ID */
 app.get("/gallery/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -1630,11 +1636,14 @@ app.get("/gallery/:id", async (req, res) => {
           Id             AS id,
           Title          AS title,
           SubTitle       AS subTitle,
-        IsGrid         AS isGrid,
-         IsSlide        AS isSlide,
+          IsGrid         AS isGrid,
+          IsSlide        AS isSlide,
+          IsButton       AS isButton,       -- NEW
+          ButtonLabel    AS buttonLabel,    -- NEW
+          ButtonLink     AS buttonLink,     -- NEW
           Description    AS description,
           ImagePath      AS imagePath,
-          GridProductIds AS gridProductIds,
+          GridProductIds  AS gridProductIds,
           SlideProductIds AS slideProductIds
         FROM tblGallery
         WHERE Id = @id;
@@ -1649,8 +1658,11 @@ app.get("/gallery/:id", async (req, res) => {
       id:              g.id,
       title:           g.title,
       subTitle:        g.subTitle,
-     isGrid:         !!g.isGrid,
-    isSlide:        !!g.isSlide,
+      isGrid:          !!g.isGrid,
+      isSlide:         !!g.isSlide,
+      isButton:        !!g.isButton,                // NEW
+      buttonLabel:     g.buttonLabel ?? "",         // NEW
+      buttonLink:      g.buttonLink  ?? "",         // NEW
       description:     g.description,
       imagePath:       g.imagePath,
       gridProductIds:  JSON.parse(g.gridProductIds  || "[]"),
@@ -1659,34 +1671,6 @@ app.get("/gallery/:id", async (req, res) => {
   } catch (err) {
     console.error("Error fetching gallery:", err);
     res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-app.put("/Gallery/:id", async (req, res) => {
-  const { title, subTitle, isGrid, isSlide } = req.body;
-  const { id } = req.params;
-
-  try {
-    await global.pool.request()
-      .input('id', sql.UniqueIdentifier, id)
-      .input('title', sql.NVarChar, title)
-      .input('subTitle', sql.NVarChar, subTitle)
-      .input('isGrid', sql.Bit, isGrid)
-      .input('isSlide', sql.Bit, isSlide)
-      .query(`
-        UPDATE tblGallery
-        SET
-          Title = @title,
-          SubTitle = @subTitle,
-          isGrid = @isGrid,
-          isSlide = @isSlide
-        WHERE Id = @id
-      `);
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
