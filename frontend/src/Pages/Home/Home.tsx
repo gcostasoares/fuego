@@ -44,15 +44,16 @@ export const Home: React.FC = () => {
   const [homeData, setHomeData]         = useState<HomeData | null>(null);
   const [shopDescriptions, setSD]       = useState<ShopDescription[]>([]);
   const [partnerLogos, setPartnerLogos] = useState<Logos[]>([]);
-  const [galleries, setGalleries]       = useState<GalleryRow[]>([]);
+  const [galleries, setGalleries]       = useState<GalleryRow[] | null>(null); // ← null = still loading
   const [loading, setLoading]           = useState(true);
 
+  /* ── load once ─────────────────────────────────────────────── */
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
 
-        /* 1) core home data */
+        /* 1) home basics */
         const { data: h } = await axios.get<Partial<HomeData>>(`${API_URL}/api/home`);
 
         const products: Product[] = (h.products ?? []).map((p: any) => {
@@ -101,7 +102,7 @@ export const Home: React.FC = () => {
           imagePath: `${API_URL}/images/PartnerLogos/${l.imagePath}`,
         }));
 
-        /* 4) galleries (drag-drop order) */
+        /* 4) galleries */
         const { data: gal } = await axios.get<GalleryRow[]>(`${API_URL}/gallery`);
 
         setHomeData({
@@ -114,7 +115,7 @@ export const Home: React.FC = () => {
         });
         setSD(sdList);
         setPartnerLogos(logoList);
-        setGalleries(gal);
+        setGalleries(gal);                 // ← now non-null
       } catch (err) {
         console.error(err);
       } finally {
@@ -123,10 +124,14 @@ export const Home: React.FC = () => {
     })();
   }, []);
 
-  if (!homeData) return <CenterDiv><Loader /></CenterDiv>;
+  /* still boot-loading galleries → just show big spinner */
+  if (!homeData || galleries === null) {
+    return <CenterDiv><Loader /></CenterDiv>;
+  }
 
-  const firstGallery = galleries[0];
-  const moreGalleries = galleries.slice(1);
+  const hasGalleries   = galleries.length > 0;
+  const firstGallery   = hasGalleries ? galleries[0] : undefined;
+  const otherGalleries = hasGalleries ? galleries.slice(1) : [];
 
   return (
     <>
@@ -134,16 +139,13 @@ export const Home: React.FC = () => {
       <CarouselSlider loading={loading} carousels={homeData.carousels} />
 
       {/* partner logos */}
-      {loading ? <CenterDiv><Loader/></CenterDiv> : (
-        <LogoSliderWrapper>
-          <LogoSliderSection logos={partnerLogos} />
-        </LogoSliderWrapper>
-      )}
+      <LogoSliderWrapper>
+        {loading ? <CenterDiv><Loader/></CenterDiv>
+                  : <LogoSliderSection logos={partnerLogos} />}
+      </LogoSliderWrapper>
 
-      {/* first slider: gallery[0] or fallback */}
-      {loading ? (
-        <CenterDiv><Loader/></CenterDiv>
-      ) : firstGallery ? (
+      {/* FIRST product-slider */}
+      {hasGalleries ? (
         <ProductSliderSection gallery={firstGallery} as="section" />
       ) : (
         <ProductSliderSection
@@ -162,21 +164,20 @@ export const Home: React.FC = () => {
       />
 
       {/* remaining galleries */}
-      {moreGalleries.map(g => (
+      {otherGalleries.map(g => (
         <GallerySection key={g.id}>
           <ProductSliderSection gallery={g} />
         </GallerySection>
       ))}
 
       {/* news */}
-      {loading ? <CenterDiv><Loader/></CenterDiv> : (
-        <NewsSection articles={homeData.articles} />
-      )}
+      {loading ? <CenterDiv><Loader/></CenterDiv>
+               : <NewsSection articles={homeData.articles} />}
     </>
   );
 };
 
-/* ── styled helpers ───────────────────────────────────────────── */
+/* ───── styled helpers ────────────────────────────────────────── */
 const LogoSliderWrapper = styled.section`
   background-color: #333;
   padding: 16px 0;
