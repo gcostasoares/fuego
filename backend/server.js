@@ -2038,7 +2038,68 @@ app.get("/saleproducts/:id", async (req, res) => {
   }
 });
 
+app.get("/AppContent", async (req, res) => {
+  try {
+    const result = await pool.request().query(`
+      SELECT
+        Id                     AS id,
+        SeoTitle               AS seoTitle,
+        SeoKeys                AS seoKeys,
+        ContentType            AS contentType,
+        URL                    AS url,
+        SeoDescription         AS seoDescription,
+        AboutTitle             AS aboutTitle,
+        AboutDescription       AS aboutDescription,
+        Imprint                AS imprint,
+        DataProtection         AS dataProtection,
+        CookiePolicy           AS cookiePolicy,
+        ShopSectionDescription AS shopSectionDescription,
+        ShopSectionTitle       AS shopSectionTitle
+      FROM tblAppContent
+      ORDER BY id
+    `);
 
+    res.json(result.recordset);
+  } catch (err) {
+    console.error("Error fetching AppContent:", err);
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
+  }
+});
+
+// Public: fetch one row by ID (optional but handy)
+app.get("/AppContent/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.request()
+      .input("id", sql.UniqueIdentifier, id)
+      .query(`
+        SELECT
+          Id                     AS id,
+          SeoTitle               AS seoTitle,
+          SeoKeys                AS seoKeys,
+          ContentType            AS contentType,
+          URL                    AS url,
+          SeoDescription         AS seoDescription,
+          AboutTitle             AS aboutTitle,
+          AboutDescription       AS aboutDescription,
+          Imprint                AS imprint,
+          DataProtection         AS dataProtection,
+          CookiePolicy           AS cookiePolicy,
+          ShopSectionDescription AS shopSectionDescription,
+          ShopSectionTitle       AS shopSectionTitle
+        FROM tblAppContent
+        WHERE Id = @id
+      `);
+
+    if (!result.recordset.length) {
+      return res.status(404).json({ error: "AppContent not found" });
+    }
+    res.json(result.recordset[0]);
+  } catch (err) {
+    console.error("Error fetching AppContent row:", err);
+    res.status(500).json({ error: "Internal Server Error", details: err.message });
+  }
+});
 
 
 
@@ -2220,6 +2281,7 @@ const adminManufacturersRoutes   = require('./admin/Manufacturers/adminManufactu
 const adminOriginsRoutes         = require('./admin/Origins/adminOriginsRoutes');
 const adminSaleProductsRoutes    = require('./admin/SaleProducts/adminSaleProductsRoutes');
 const adminUsersRoutes           = require('./admin/Users/adminUsersRoutes');
+const adminAppContentRoutes = require("./admin/AppContent/adminAppContentRoutes");
 
 
 app.use('/Products',          authenticateAdmin, adminProductsRoutes);
@@ -2238,6 +2300,7 @@ app.use('/Manufacturers',     authenticateAdmin, adminManufacturersRoutes);
 app.use('/Origins',           authenticateAdmin, adminOriginsRoutes);
 app.use('/SaleProducts',      authenticateAdmin, adminSaleProductsRoutes);
 app.use('/Users',             authenticateAdmin, adminUsersRoutes);
+app.use("/AppContent", authenticateAdmin, adminAppContentRoutes);
 
 
 
