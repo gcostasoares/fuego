@@ -1,24 +1,21 @@
-/* admin/Gallery/adminGalleryRoutes.js
-   ────────────────────────────────────────────────────────────────── */
 const express = require("express");
 const ctrl    = require("./adminGalleryController");
+const router  = express.Router();
 
-const router = express.Router();
+/* CRUD */
+router.get(   "/",    ctrl.listGallery);
+router.get(   "/:id", ctrl.getGallery);
+router.post(  "/",    ctrl.createGallery);
+router.put(   "/:id", ctrl.updateGallery);
+router.delete("/:id", ctrl.deleteGallery);
 
-/* ─── main CRUD ─────────────────────────────────────────────── */
-router.get(   "/",      ctrl.listGallery);      // list all
-router.get(   "/:id",   ctrl.getGallery);       // get one
-router.post(  "/",      ctrl.createGallery);    // create
-router.put(   "/:id",   ctrl.updateGallery);    // update
-router.delete("/:id",   ctrl.deleteGallery);    // delete
-
-/* ─── GRID helpers ──────────────────────────────────────────── */
+/* grid helpers */
 router.get(   "/:id/grid/products",               ctrl.listGrid);
 router.post(  "/:id/grid/products",               ctrl.addGrid);
 router.delete("/:id/grid/products/:productId",    ctrl.removeGrid);
 router.put(   "/:id/grid/products/order",         ctrl.orderGrid);
 
-/* ─── SLIDE helpers ─────────────────────────────────────────── */
+/* slide helpers */
 router.get(   "/:id/slide/products",              ctrl.listSlide);
 router.post(  "/:id/slide/products",              ctrl.addSlide);
 router.delete("/:id/slide/products/:productId",   ctrl.removeSlide);
