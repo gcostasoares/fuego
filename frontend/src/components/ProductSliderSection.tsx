@@ -53,79 +53,62 @@ export const ProductSliderSection: React.FC<Props> = ({
   };
 
   useEffect(() => {
-    /* reset products to avoid “random” leftovers */
-    const clearDisplay = () => {
-      setGridProducts([]);
-      setSlideProducts([]);
-      setIsGridActive(false);
-      setIsSlideActive(false);
-      setIsButton(false);
-      setButtonLabel("");
-      setButtonLink("");
-    };
+    /* reset everything before loading new data */
+    setGridProducts([]); setSlideProducts([]);
+    setIsGridActive(false); setIsSlideActive(false);
+    setIsButton(false); setButtonLabel(""); setButtonLink("");
 
-    /* HOME MODE ---------------------------------------------------------------- */
-    const useHome = () => {
-      clearDisplay();
+    /* HOME mode ------------------------------------------------------------- */
+    const loadHome = () => {
       if (!homeProducts || !homeCategories) return;
       setGridProducts(homeProducts.slice(0, 6));
       setSlideProducts(homeProducts.slice(0, 4));
       setHeadingTitle("Featured Products");
       setHeadingSubTitle("");
       setCategories(homeCategories);
-      setIsGridActive(true);
-      setIsSlideActive(true);
+      setIsGridActive(true); setIsSlideActive(true);
     };
 
-    /* GALLERY MODE -------------------------------------------------------------- */
+    /* GALLERY mode ---------------------------------------------------------- */
     const loadGallery = async (id: string) => {
-      clearDisplay();
-
-      /* 1) meta row */
       const { data: gal } = await apiClient.get<Gallery>(`/gallery/${id}`);
 
       setHeadingTitle(gal.title);
       setHeadingSubTitle(gal.subTitle);
-      setIsGridActive(gal.isGrid);
-      setIsSlideActive(gal.isSlide);
+      setIsGridActive(gal.isGrid); setIsSlideActive(gal.isSlide);
 
-      /* handle button even if isButton is missing */
-      const buttonEnabled =
-        "isButton" in gal
-          ? !!gal.isButton
-          : !!gal.buttonLabel || !!gal.buttonLink;
+      /* button logic */
+      const btnEnabled =
+        ("isButton" in gal ? gal.isButton : undefined) ||
+        gal.buttonLabel || gal.buttonLink;
+      setIsButton(!!btnEnabled);
+      setButtonLabel(gal.buttonLabel);
+      setButtonLink(gal.buttonLink);
 
-      setIsButton(buttonEnabled);
-      setButtonLabel(gal.buttonLabel ?? "");
-      setButtonLink(gal.buttonLink  ?? "");
-
-      /* 2) full product catalogue once */
+      /* full catalogue 1× */
       const { data: prodPage } = await apiClient.get<{ products: Product[] }>(
         "/products", { params: { pageSize: 1000 } }
       );
       const all = prodPage.products;
 
-      /* 3) map IDs */
       if (gal.isGrid) {
         const ids = parseIds(gal.gridProductIds);
-        setGridProducts(ids.map(id => all.find(p => p.id === id)!).filter(Boolean));
+        setGridProducts(ids.map(id=>all.find(p=>p.id===id)!).filter(Boolean));
       }
       if (gal.isSlide) {
         const ids = parseIds(gal.slideProductIds);
-        setSlideProducts(ids.map(id => all.find(p => p.id === id)!).filter(Boolean));
+        setSlideProducts(ids.map(id=>all.find(p=>p.id===id)!).filter(Boolean));
       }
 
-      /* 4) categories (fallback only) */
-      if (!buttonEnabled) {
+      if (!btnEnabled) {
         const { data: h } = await apiClient.get<{ categories: Categories[] }>("/api/home");
         setCategories(h.categories);
       }
     };
 
-    galleryId ? loadGallery(galleryId) : useHome();
+    galleryId ? loadGallery(galleryId) : loadHome();
   }, [galleryId, homeProducts, homeCategories]);
 
-  /* hide section if literally nothing is active */
   if (!isGridActive && !isSlideActive) return null;
 
   /* ─────────────────────────── JSX ──────────────────────────── */
@@ -138,7 +121,7 @@ export const ProductSliderSection: React.FC<Props> = ({
           <p className="text-[1.7rem] text-gray-600 mb-6">{headingSubTitle}</p>
         )}
 
-        {/* CTA button or category chips */}
+        {/* CTA or category chips */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
           {isButton ? (
             <a
