@@ -1,5 +1,3 @@
-// src/components/ProductSliderSection.tsx
-
 import React, { useEffect, useState } from "react";
 import Col from "react-bootstrap/Col";
 import Row from "react-bootstrap/Row";
@@ -10,22 +8,22 @@ import apiClient from "@/Apis/apiService";
 import { Product } from "@/types/product";
 import { Categories } from "@/types/categories";
 
+/* ───────── local types ───────── */
 interface Gallery {
   id:               string;
   title:            string;
   subTitle:         string;
   isGrid:           boolean;
   isSlide:          boolean;
+  description:      string | null;
   gridProductIds:   string[] | string;
   slideProductIds:  string[] | string;
 }
 
 interface Props {
-  // if passed, load this gallery; otherwise behave like your “home” slider
-  galleryId?: string;
-  // only used in “home” mode
-  products?: Product[];
-  categories?: Categories[];
+  galleryId?: string;              // if set → gallery mode
+  products?: Product[];            // home mode
+  categories?: Categories[];       // home mode
   as?: React.ElementType;
 }
 
@@ -43,9 +41,20 @@ export const ProductSliderSection: React.FC<Props> = ({
   const [isGridActive, setIsGridActive]   = useState(false);
   const [isSlideActive, setIsSlideActive] = useState(false);
 
+  /* new button state */
+  const [buttonActive, setButtonActive]   = useState(false);
+  const [buttonLabel, setButtonLabel]     = useState("");
+
+  /* helpers */
+  const parseIds = (ids: string[] | string): string[] => {
+    if (Array.isArray(ids)) return ids;
+    try { return JSON.parse(ids); }
+    catch { return ids.split(",").map((s) => s.trim()).filter(Boolean); }
+  };
+
   useEffect(() => {
+    /** HOME MODE */
     const loadHome = () => {
-      // HOME MODE: use the passed-in props
       if (!homeProducts || !homeCategories) return;
       setGridProducts(homeProducts.slice(0, 6));
       setSlideProducts(homeProducts.slice(0, 4));
@@ -54,85 +63,86 @@ export const ProductSliderSection: React.FC<Props> = ({
       setCategories(homeCategories);
       setIsGridActive(true);
       setIsSlideActive(true);
+      setButtonActive(false);
     };
 
+    /** GALLERY MODE */
     const loadGallery = async (id: string) => {
-      // GALLERY MODE: fetch exactly this gallery
       const { data: gal } = await apiClient.get<Gallery>(`/gallery/${id}`);
       setHeadingTitle(gal.title);
       setHeadingSubTitle(gal.subTitle);
       setIsGridActive(gal.isGrid);
       setIsSlideActive(gal.isSlide);
 
-      // fetch all products
+      /* extract button tag from description */
+      const m = /^BTN\|(0|1)\|(.*)$/s.exec(gal.description ?? "");
+      setButtonActive(!!m && m[1] === "1");
+      setButtonLabel(m ? m[2].trim() : "");
+
+      /* load products */
       const { data: prodPage } = await apiClient.get<{ products: Product[] }>(
         "/products",
         { params: { pageSize: 1000 } }
       );
       const all = prodPage.products;
 
-      const parseIds = (ids: string[] | string): string[] => {
-        if (Array.isArray(ids)) return ids;
-        try { return JSON.parse(ids); }
-        catch { return ids.split(",").map((s) => s.trim()).filter(Boolean); }
-      };
-
       if (gal.isSlide) {
         const slideIds = parseIds(gal.slideProductIds);
-        setSlideProducts(
-          slideIds.map((id) => all.find((p) => p.id === id)!).filter(Boolean)
-        );
+        setSlideProducts(slideIds.map((id) => all.find((p) => p.id === id)!).filter(Boolean));
       }
       if (gal.isGrid) {
         const gridIds = parseIds(gal.gridProductIds);
-        setGridProducts(
-          gridIds.map((id) => all.find((p) => p.id === id)!).filter(Boolean)
-        );
+        setGridProducts(gridIds.map((id) => all.find((p) => p.id === id)!).filter(Boolean));
       }
 
-      // optional: load categories for filter buttons
+      /* categories for optional filter buttons */
       try {
-        const { data: home } = await apiClient.get<{ categories: Categories[] }>(
-          "/api/home"
-        );
+        const { data: home } = await apiClient.get<{ categories: Categories[] }>("/api/home");
         setCategories(home.categories);
       } catch {}
     };
 
-    if (galleryId) {
-      loadGallery(galleryId);
-    } else {
-      loadHome();
-    }
+    galleryId ? loadGallery(galleryId) : loadHome();
   }, [galleryId, homeProducts, homeCategories]);
 
-  // hide if nothing active
-  if (!isGridActive && !isSlideActive) return null;
+  if (!isGridActive && !isSlideActive) return null; // section hidden
 
+  /* ─────────────────────────── JSX ───────────────────────────────── */
   return (
     <Section as="section" className="container my-12 w-4/5">
-      {/* Heading */}
+      {/* heading */}
       <div className="text-center">
         <p className="text-[3rem] font-bold py-4">{headingTitle}</p>
         {headingSubTitle && (
-          <p className="text-[1.7rem] text-gray-600 mb-6">
-            {headingSubTitle}
-          </p>
+          <p className="text-[1.7rem] text-gray-600 mb-6">{headingSubTitle}</p>
         )}
-        {/* category buttons */}
+
+        {/* buttons row */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {categories.map((c) => (
+          {buttonActive ? (
             <button
-              key={c.id}
-              className="text-[#1d4a34] border-[#333] text-xl px-10 py-2.5 uppercase bg-white rounded-full border font-bold hover:bg-[#333] hover:text-white"
+              className="text-[#1d4a34] border-[#333] text-xl px-10 py-2.5 uppercase
+                         bg-white rounded-full border font-bold
+                         hover:bg-[#333] hover:text-white"
             >
-              {c.name}
+              {buttonLabel || "Mehr Produkte"}
             </button>
-          ))}
+          ) : (
+            categories.map((c) => (
+              <button
+                key={c.id}
+                className="text-[#1d4a34] border-[#333] text-xl px-10 py-2.5 uppercase
+                           bg-white rounded-full border font-bold
+                           hover:bg-[#333] hover:text-white"
+              >
+                {c.name}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
-      {/* Content */}
+      {/* content */}
       <Row className="pt-5 mt-4 grid">
         {isSlideActive && (
           <Col xl={3} lg={4} md={4} sm={12} xs={12}>
