@@ -1,4 +1,3 @@
-// src/components/AdminGalleryContent.tsx
 import React, { useEffect, useState, useRef } from "react";
 import {
   DragDropContext,
@@ -8,13 +7,26 @@ import {
 } from "react-beautiful-dnd";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
+import Loader from "@/components/ui/loader";
 
+/* ───────── loader overlay ───────── */
+function FullPageLoader() {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center
+                    bg-white/70 backdrop-blur-sm">
+      <Loader />
+    </div>
+  );
+}
+
+/* ───────── types ───────── */
 interface Gallery {
   id: string;
   title: string;
   subTitle: string;
   isGrid: boolean;
   isSlide: boolean;
+  description: string | null;
 }
 
 interface Product {
@@ -24,10 +36,8 @@ interface Product {
   imageUrl: string[];
 }
 
-// initial empty form
+/* ───────── constants ───────── */
 const defaultForm = { title: "", subTitle: "" };
-
-// full backend URL for images (set VITE_API_URL in .env)
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8081";
 
 export default function AdminGalleryContent() {
@@ -35,48 +45,65 @@ export default function AdminGalleryContent() {
   const [products, setProducts]   = useState<Product[]>([]);
   const [selected, setSelected]   = useState<Gallery | null>(null);
 
-  const [form, setForm]      = useState(defaultForm);
-  const [isGrid, setIsGrid]  = useState(false);
-  const [isSlide, setIsSlide]= useState(false);
-  const [gridIds, setGridIds]= useState<string[]>([]);
-  const [slideIds, setSlideIds] = useState<string[]>([]);
-  const [mode, setMode]      = useState<"add"|"edit">("add");
-  const [open, setOpen]      = useState(false);
-  const modalRef             = useRef<HTMLDivElement>(null);
+  const [form, setForm]           = useState(defaultForm);
+  const [isGrid, setIsGrid]       = useState(false);
+  const [isSlide, setIsSlide]     = useState(false);
+  const [gridIds, setGridIds]     = useState<string[]>([]);
+  const [slideIds, setSlideIds]   = useState<string[]>([]);
+  const [buttonActive, setButtonActive] = useState(false);
+  const [buttonLabel,  setButtonLabel]  = useState("");
+  const [mode, setMode]           = useState<"add" | "edit">("add");
+  const [open, setOpen]           = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const modalRef                  = useRef<HTMLDivElement>(null);
 
-  // pull admin key from localStorage (you already stored it)
   const adminKey = localStorage.getItem("adminKey") || "";
   const headers  = { "x-admin-key": adminKey };
 
-  /** 1) fetch all galleries */
+  /* ─── helpers to parse & build BTN tag ─────────────────────────── */
+  const parseBtnTag = (desc: string | null) => {
+    const m = /^BTN\|(0|1)\|(.*)$/s.exec(desc ?? "");
+    return {
+      active: !!m && m[1] === "1",
+      label:  m ? m[2].trim() : "",
+    };
+  };
+  const buildBtnTag = () =>
+    buttonActive ? `BTN|1|${buttonLabel.trim() || "Button"}` : "";
+
+  /* ─── fetch galleries ------------------------------------------------ */
   const fetchGalleries = async () => {
     try {
-      const resp = await apiClient.get<Gallery[]>("/Gallery", { headers });
-      setGalleries(resp.data);
+      setLoading(true);
+      const { data } = await apiClient.get<Gallery[]>("/Gallery", { headers });
+      setGalleries(data);
     } catch (err) {
       console.error("Error fetching galleries:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  /** 2) fetch all products */
+  /* ─── fetch products ------------------------------------------------- */
   const fetchProducts = async () => {
     try {
-      const resp = await apiClient.get<{ products: Product[] }>(
+      const { data } = await apiClient.get<{ products: Product[] }>(
         "/products?pageSize=1000",
         { headers }
       );
-      setProducts(resp.data.products);
+      setProducts(data.products);
     } catch (err) {
       console.error("Error fetching products:", err);
     }
   };
 
+  /* first load */
   useEffect(() => {
     fetchGalleries();
     fetchProducts();
   }, []);
 
-  /** open modal for add or edit */
+  /* ─── open modal (add / edit) --------------------------------------- */
   const openModal = async (g?: Gallery) => {
     await fetchProducts();
 
@@ -85,6 +112,12 @@ export default function AdminGalleryContent() {
       setForm({ title: g.title, subTitle: g.subTitle });
       setIsGrid(g.isGrid);
       setIsSlide(g.isSlide);
+
+      /* parse button tag */
+      const btn = parseBtnTag(g.description);
+      setButtonActive(btn.active);
+      setButtonLabel(btn.label);
+
       setMode("edit");
 
       try {
@@ -99,11 +132,13 @@ export default function AdminGalleryContent() {
         setSlideIds([]);
       }
     } else {
-      // reset for add
+      /* reset for add */
       setSelected(null);
       setForm(defaultForm);
       setIsGrid(false);
       setIsSlide(false);
+      setButtonActive(false);
+      setButtonLabel("");
       setGridIds([]);
       setSlideIds([]);
       setMode("add");
@@ -113,73 +148,84 @@ export default function AdminGalleryContent() {
   };
   const closeModal = () => setOpen(false);
 
-  /** form field change */
+  /* ─── form change --------------------------------------------------- */
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  /** submit handler */
+  /* ─── submit -------------------------------------------------------- */
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
 
-    const payload = {
+    const payload: any = {
       title:   form.title.trim() || "(Ohne Titel)",
       subTitle: form.subTitle,
       isGrid,
       isSlide,
+      description: buildBtnTag(),
     };
 
     let galleryId = selected?.id;
-    if (mode === "add") {
-      const resp = await apiClient.post<{ id: string }>("/Gallery", payload, { headers });
-      galleryId = resp.data.id;
-    } else {
-      await apiClient.put(`/Gallery/${galleryId}`, payload, { headers });
-    }
+    try {
+      if (mode === "add") {
+        const { data } = await apiClient.post<{ id: string }>("/Gallery", payload, { headers });
+        galleryId = data.id;
+      } else {
+        await apiClient.put(`/Gallery/${galleryId}`, payload, { headers });
+      }
 
-    if (!galleryId) return alert("Missing gallery ID!");
+      if (!galleryId) throw new Error("No galleryId");
 
-    if (isGrid) {
-      await apiClient.put(
-        `/Gallery/${galleryId}/grid/products/order`,
-        { order: gridIds },
-        { headers }
-      );
-    }
-    if (isSlide) {
-      await apiClient.put(
-        `/Gallery/${galleryId}/slide/products/order`,
-        { order: slideIds },
-        { headers }
-      );
-    }
+      /* update product order */
+      if (isGrid) {
+        await apiClient.put(
+          `/Gallery/${galleryId}/grid/products/order`,
+          { order: gridIds },
+          { headers }
+        );
+      }
+      if (isSlide) {
+        await apiClient.put(
+          `/Gallery/${galleryId}/slide/products/order`,
+          { order: slideIds },
+          { headers }
+        );
+      }
 
-    await fetchGalleries();
-    closeModal();
+      await fetchGalleries();
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      alert("Speichern fehlgeschlagen");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /** delete gallery */
+  /* ─── delete gallery ------------------------------------------------ */
   const onDeleteGallery = async (id: string) => {
     if (!confirm("Löschen?")) return;
-    await apiClient.delete(`/Gallery/${id}`, { headers });
-    setGalleries((gs) => gs.filter((g) => g.id !== id));
+    setLoading(true);
+    try {
+      await apiClient.delete(`/Gallery/${id}`, { headers });
+      setGalleries((gs) => gs.filter((g) => g.id !== id));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /** add product to grid or slide */
-  const handleAdd = (type: "grid"|"slide", pid: string) => {
+  /* ─── add / remove / reorder products ------------------------------ */
+  const handleAdd = (type: "grid" | "slide", pid: string) => {
     if (!pid) return;
     type === "grid"
       ? setGridIds((ids) => [...ids, pid])
       : setSlideIds((ids) => [...ids, pid]);
   };
-
-  /** remove product */
-  const handleRemove = (type: "grid"|"slide", pid: string) => {
+  const handleRemove = (type: "grid" | "slide", pid: string) => {
     type === "grid"
       ? setGridIds((ids) => ids.filter((x) => x !== pid))
       : setSlideIds((ids) => ids.filter((x) => x !== pid));
   };
-
-  /** reorder items on drag end */
   const onDragEnd = (res: DropResult) => {
     const { source, destination, type } = res;
     if (!destination || source.index === destination.index) return;
@@ -202,14 +248,16 @@ export default function AdminGalleryContent() {
     }
   };
 
+  /* ───────────────────────────── JSX ─────────────────────────────── */
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      {/* — Gallery List */}
+      {/* list header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Galleries</h2>
         <Button onClick={() => openModal()}>Neue Galerie hinzufügen</Button>
       </div>
 
+      {/* gallery list with drag-reorder */}
       <Droppable droppableId="gallery-list" type="gallery">
         {(prov) => (
           <ul ref={prov.innerRef} {...prov.droppableProps} className="divide-y">
@@ -244,7 +292,7 @@ export default function AdminGalleryContent() {
         )}
       </Droppable>
 
-      {/* — Modal */}
+      {/* ───────── modal ───────── */}
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
@@ -267,7 +315,7 @@ export default function AdminGalleryContent() {
             </h3>
 
             <form onSubmit={onSubmit} className="space-y-4">
-              {/* Title */}
+              {/* title & subtitle */}
               <div>
                 <label className="block text-sm font-medium">Titel</label>
                 <input
@@ -278,8 +326,6 @@ export default function AdminGalleryContent() {
                   required
                 />
               </div>
-
-              {/* SubTitle */}
               <div>
                 <label className="block text-sm font-medium">Subtitel</label>
                 <input
@@ -290,8 +336,8 @@ export default function AdminGalleryContent() {
                 />
               </div>
 
-              {/* Flags */}
-              <div className="flex gap-6">
+              {/* flags */}
+              <div className="flex gap-6 flex-wrap">
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -308,9 +354,31 @@ export default function AdminGalleryContent() {
                   />
                   Slide aktiv
                 </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={buttonActive}
+                    onChange={(e) => setButtonActive(e.target.checked)}
+                  />
+                  Button aktiv
+                </label>
               </div>
 
-              {/* Grid products */}
+              {/* button label */}
+              {buttonActive && (
+                <div>
+                  <label className="block text-sm font-medium">Button-Text</label>
+                  <input
+                    value={buttonLabel}
+                    onChange={(e) => setButtonLabel(e.target.value)}
+                    className="w-full border p-2"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* grid / slide product pickers (unchanged logic) */}
+              {/* ––––– GRID ––––– */}
               {isGrid && (
                 <>
                   <h4 className="text-lg font-semibold mt-4">Grid Produkte</h4>
@@ -386,7 +454,7 @@ export default function AdminGalleryContent() {
                 </>
               )}
 
-              {/* Slide products */}
+              {/* ––––– SLIDE ––––– */}
               {isSlide && (
                 <>
                   <h4 className="text-lg font-semibold mt-4">Slide Produkte</h4>
@@ -475,6 +543,8 @@ export default function AdminGalleryContent() {
           </div>
         </div>
       )}
+
+      {loading && <FullPageLoader />}
     </DragDropContext>
   );
 }
