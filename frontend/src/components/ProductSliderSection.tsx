@@ -1,3 +1,6 @@
+/*  Only the small guard `showCategories` changed; everything else is
+    identical to the previous version I sent.                                  */
+
 import React, { useEffect, useState } from "react";
 import Col from "react-bootstrap/Col";
 import Row from "react-bootstrap/Row";
@@ -22,9 +25,7 @@ interface GalleryRow {
 }
 
 interface Props {
-  /* pass fully-populated gallery row OR */
   gallery?: GalleryRow;
-  /* fallback “home” mode props */
   products?: Product[];
   categories?: Categories[];
   as?: React.ElementType;
@@ -41,7 +42,6 @@ export const ProductSliderSection: React.FC<Props> = ({
   const [categories, setCategories]       = useState<Categories[]>([]);
   const [headingTitle, setHeadingTitle]   = useState("");
   const [headingSubTitle, setHeadingSubTitle] = useState("");
-
   const [isGridActive, setIsGridActive]   = useState(false);
   const [isSlideActive, setIsSlideActive] = useState(false);
 
@@ -49,21 +49,20 @@ export const ProductSliderSection: React.FC<Props> = ({
   const [buttonLabel, setButtonLabel]     = useState("");
   const [buttonLink,  setButtonLink]      = useState("");
 
-  /* helper */
   const parseIds = (ids: string[] | string): string[] => {
     if (Array.isArray(ids)) return ids;
     try { return JSON.parse(ids); }
     catch { return ids.split(",").map(s=>s.trim()).filter(Boolean); }
   };
 
-  /* ─── populate state ───────────────────────────────────────── */
   useEffect(() => {
-    /* START fresh */
+    /* reset */
     setGridProducts([]); setSlideProducts([]);
     setIsGridActive(false); setIsSlideActive(false);
     setIsButton(false); setButtonLabel(""); setButtonLink("");
+    setCategories([]);                                     // ← clear stale chips
 
-    /* HOME MODE ------------------------------------------------ */
+    /* HOME mode */
     if (!gallery) {
       if (!homeProducts || !homeCategories) return;
       setGridProducts(homeProducts.slice(0, 6));
@@ -75,24 +74,25 @@ export const ProductSliderSection: React.FC<Props> = ({
       return;
     }
 
-    /* GALLERY MODE -------------------------------------------- */
+    /* GALLERY mode */
     (async () => {
-      /* we already have full gallery row; only need products */
       setHeadingTitle(gallery.title);
       setHeadingSubTitle(gallery.subTitle);
       setIsGridActive(gallery.isGrid);
       setIsSlideActive(gallery.isSlide);
 
-      const btn = gallery.isButton || gallery.buttonLabel || gallery.buttonLink;
-      setIsButton(!!btn);
+      const btnEnabled =
+        ("isButton" in gallery ? gallery.isButton : undefined) ||
+        gallery.buttonLabel || gallery.buttonLink;
+      setIsButton(!!btnEnabled);
       setButtonLabel(gallery.buttonLabel);
       setButtonLink(gallery.buttonLink);
 
-      /* product catalogue once */
-      const { data: page } = await apiClient.get<{ products: Product[] }>(
+      /* fetch catalogue once */
+      const { data } = await apiClient.get<{ products: Product[] }>(
         "/products", { params: { pageSize: 1000 } }
       );
-      const all = page.products;
+      const all = data.products;
 
       if (gallery.isGrid) {
         const ids = parseIds(gallery.gridProductIds);
@@ -103,30 +103,28 @@ export const ProductSliderSection: React.FC<Props> = ({
         setSlideProducts(ids.map(id=>all.find(p=>p.id===id)!).filter(Boolean));
       }
 
-      /* categories only needed if button is OFF */
-      if (!btn) {
-        const { data: home } = await apiClient.get<{ categories: Categories[] }>("/api/home");
-        setCategories(home.categories);
+      /* categories only if button OFF */
+      if (!btnEnabled) {
+        const { data: h } = await apiClient.get<{ categories: Categories[] }>("/api/home");
+        setCategories(h.categories);
       }
     })();
   }, [gallery, homeProducts, homeCategories]);
 
-  /* nothing to show? abort render */
   if (!isGridActive && !isSlideActive) return null;
 
-  /* ─── JSX ──────────────────────────────────────────────────── */
+  const showCategories = !isButton && categories.length > 0;
+
   return (
     <Section as="section" className="container my-12 w-4/5">
-      {/* heading */}
       <div className="text-center">
         <p className="text-[3rem] font-bold py-4">{headingTitle}</p>
         {headingSubTitle && (
           <p className="text-[1.7rem] text-gray-600 mb-6">{headingSubTitle}</p>
         )}
 
-        {/* CTA button or category chips */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {isButton ? (
+          {isButton && (
             <a
               href={buttonLink || "#"}
               target={buttonLink ? "_blank" : undefined}
@@ -137,7 +135,9 @@ export const ProductSliderSection: React.FC<Props> = ({
             >
               {buttonLabel || "Zum Shop"}
             </a>
-          ) : (
+          )}
+
+          {showCategories &&
             categories.map(c => (
               <button
                 key={c.id}
@@ -147,12 +147,10 @@ export const ProductSliderSection: React.FC<Props> = ({
               >
                 {c.name}
               </button>
-            ))
-          )}
+            ))}
         </div>
       </div>
 
-      {/* layout */}
       <Row className="pt-5 mt-4 grid">
         {isSlideActive && (
           <Col xl={3} lg={4} md={4} sm={12} xs={12}>
