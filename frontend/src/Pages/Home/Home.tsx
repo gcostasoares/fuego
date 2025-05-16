@@ -16,7 +16,6 @@ import { Logos } from "@/types/logos";
 import { Product } from "@/types/product";
 import { ShopDescription } from "@/types/shopDescription";
 
-/* ─────── internal types ─────── */
 interface HomeData {
   products: Product[];
   categories: Categories[];
@@ -26,6 +25,7 @@ interface HomeData {
   shopSectionDescription: string;
 }
 
+/* gallery rows */
 interface RawGallery {
   id: string;
   title: string;
@@ -54,7 +54,7 @@ export const Home: React.FC = () => {
       try {
         setLoading(true);
 
-        /* 1) “home” payload -------------------------------------------------- */
+        /* 1) home core data */
         const { data: h } = await axios.get<Partial<HomeData>>(`${API_URL}/api/home`);
 
         const products: Product[] = (h.products ?? []).map((p: any) => {
@@ -83,7 +83,7 @@ export const Home: React.FC = () => {
           imagePath: `${API_URL}/images/Carousel/${c.imagePath ?? c.imageUrl}`,
         }));
 
-        /* 2) shop descriptions ---------------------------------------------- */
+        /* 2) shop descriptions */
         const { data: sd } = await axios.get<ShopDescription[]>(
           `${API_URL}/api/shopdescriptions`
         );
@@ -94,7 +94,7 @@ export const Home: React.FC = () => {
           imagePath: `${API_URL}/images/ShopDescriptions/${s.imagePath}`,
         }));
 
-        /* 3) partner logos --------------------------------------------------- */
+        /* 3) partner logos */
         const { data: logos } = await axios.get<{ id:string; imagePath:string }[]>(
           `${API_URL}/api/partnerlogos`
         );
@@ -103,10 +103,9 @@ export const Home: React.FC = () => {
           imagePath: `${API_URL}/images/PartnerLogos/${l.imagePath}`,
         }));
 
-        /* 4) galleries (DB order = drag-drop order) -------------------------- */
+        /* 4) galleries – DB order == desired order */
         const { data: gal } = await axios.get<RawGallery[]>(`${API_URL}/gallery`);
 
-        /* 5) set state ------------------------------------------------------- */
         setHomeData({
           products,
           categories: h.categories || [],
@@ -130,7 +129,8 @@ export const Home: React.FC = () => {
     return <CenterDiv><Loader /></CenterDiv>;
   }
 
-  /* first gallery row is “special” */
+  /* decide which slider appears first */
+  const hasGalleries = galleries.length > 0;
   const [firstGallery, ...otherGalleries] = galleries;
 
   return (
@@ -145,8 +145,14 @@ export const Home: React.FC = () => {
         </LogoSliderWrapper>
       )}
 
-      {/* featured products slider (“home mode”) */}
-      {loading ? <CenterDiv><Loader/></CenterDiv> : (
+      {/* FIRST product-slider section  */}
+      {loading ? (
+        <CenterDiv><Loader/></CenterDiv>
+      ) : hasGalleries ? (
+        /* use gallery[0] */
+        <ProductSliderSection galleryId={firstGallery.id} as="section" />
+      ) : (
+        /* fall back to original featured-products slider */
         <ProductSliderSection
           products={homeData.products}
           categories={homeData.categories}
@@ -154,7 +160,7 @@ export const Home: React.FC = () => {
         />
       )}
 
-      {/* Feature section (ShopDescriptions) */}
+      {/* Feature (shop descriptions) */}
       <FeatureSection
         shopSectionTitle={homeData.shopSectionTitle}
         shopSectionDescription={homeData.shopSectionDescription}
@@ -162,14 +168,7 @@ export const Home: React.FC = () => {
         shopDescriptions={shopDescriptions}
       />
 
-      {/* first gallery (should be the FIRST array item) */}
-      {firstGallery && (
-        <GallerySection key={firstGallery.id}>
-          <ProductSliderSection galleryId={firstGallery.id} />
-        </GallerySection>
-      )}
-
-      {/* All remaining galleries */}
+      {/* Remaining galleries, if any */}
       {otherGalleries.map(g => (
         <GallerySection key={g.id}>
           <ProductSliderSection galleryId={g.id} />
