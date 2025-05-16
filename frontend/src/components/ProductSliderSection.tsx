@@ -8,7 +8,7 @@ import apiClient from "@/Apis/apiService";
 import { Product } from "@/types/product";
 import { Categories } from "@/types/categories";
 
-interface Gallery {
+interface GalleryRow {
   id:               string;
   title:            string;
   subTitle:         string;
@@ -22,14 +22,16 @@ interface Gallery {
 }
 
 interface Props {
-  galleryId?: string;
+  /* pass fully-populated gallery row OR */
+  gallery?: GalleryRow;
+  /* fallback “home” mode props */
   products?: Product[];
   categories?: Categories[];
   as?: React.ElementType;
 }
 
 export const ProductSliderSection: React.FC<Props> = ({
-  galleryId,
+  gallery,
   products: homeProducts,
   categories: homeCategories,
   as: Section = Box,
@@ -39,6 +41,7 @@ export const ProductSliderSection: React.FC<Props> = ({
   const [categories, setCategories]       = useState<Categories[]>([]);
   const [headingTitle, setHeadingTitle]   = useState("");
   const [headingSubTitle, setHeadingSubTitle] = useState("");
+
   const [isGridActive, setIsGridActive]   = useState(false);
   const [isSlideActive, setIsSlideActive] = useState(false);
 
@@ -46,20 +49,22 @@ export const ProductSliderSection: React.FC<Props> = ({
   const [buttonLabel, setButtonLabel]     = useState("");
   const [buttonLink,  setButtonLink]      = useState("");
 
+  /* helper */
   const parseIds = (ids: string[] | string): string[] => {
     if (Array.isArray(ids)) return ids;
     try { return JSON.parse(ids); }
-    catch { return ids.split(",").map(s => s.trim()).filter(Boolean); }
+    catch { return ids.split(",").map(s=>s.trim()).filter(Boolean); }
   };
 
+  /* ─── populate state ───────────────────────────────────────── */
   useEffect(() => {
-    /* reset everything before loading new data */
+    /* START fresh */
     setGridProducts([]); setSlideProducts([]);
     setIsGridActive(false); setIsSlideActive(false);
     setIsButton(false); setButtonLabel(""); setButtonLink("");
 
-    /* HOME mode ------------------------------------------------------------- */
-    const loadHome = () => {
+    /* HOME MODE ------------------------------------------------ */
+    if (!gallery) {
       if (!homeProducts || !homeCategories) return;
       setGridProducts(homeProducts.slice(0, 6));
       setSlideProducts(homeProducts.slice(0, 4));
@@ -67,51 +72,49 @@ export const ProductSliderSection: React.FC<Props> = ({
       setHeadingSubTitle("");
       setCategories(homeCategories);
       setIsGridActive(true); setIsSlideActive(true);
-    };
+      return;
+    }
 
-    /* GALLERY mode ---------------------------------------------------------- */
-    const loadGallery = async (id: string) => {
-      const { data: gal } = await apiClient.get<Gallery>(`/gallery/${id}`);
+    /* GALLERY MODE -------------------------------------------- */
+    (async () => {
+      /* we already have full gallery row; only need products */
+      setHeadingTitle(gallery.title);
+      setHeadingSubTitle(gallery.subTitle);
+      setIsGridActive(gallery.isGrid);
+      setIsSlideActive(gallery.isSlide);
 
-      setHeadingTitle(gal.title);
-      setHeadingSubTitle(gal.subTitle);
-      setIsGridActive(gal.isGrid); setIsSlideActive(gal.isSlide);
+      const btn = gallery.isButton || gallery.buttonLabel || gallery.buttonLink;
+      setIsButton(!!btn);
+      setButtonLabel(gallery.buttonLabel);
+      setButtonLink(gallery.buttonLink);
 
-      /* button logic */
-      const btnEnabled =
-        ("isButton" in gal ? gal.isButton : undefined) ||
-        gal.buttonLabel || gal.buttonLink;
-      setIsButton(!!btnEnabled);
-      setButtonLabel(gal.buttonLabel);
-      setButtonLink(gal.buttonLink);
-
-      /* full catalogue 1× */
-      const { data: prodPage } = await apiClient.get<{ products: Product[] }>(
+      /* product catalogue once */
+      const { data: page } = await apiClient.get<{ products: Product[] }>(
         "/products", { params: { pageSize: 1000 } }
       );
-      const all = prodPage.products;
+      const all = page.products;
 
-      if (gal.isGrid) {
-        const ids = parseIds(gal.gridProductIds);
+      if (gallery.isGrid) {
+        const ids = parseIds(gallery.gridProductIds);
         setGridProducts(ids.map(id=>all.find(p=>p.id===id)!).filter(Boolean));
       }
-      if (gal.isSlide) {
-        const ids = parseIds(gal.slideProductIds);
+      if (gallery.isSlide) {
+        const ids = parseIds(gallery.slideProductIds);
         setSlideProducts(ids.map(id=>all.find(p=>p.id===id)!).filter(Boolean));
       }
 
-      if (!btnEnabled) {
-        const { data: h } = await apiClient.get<{ categories: Categories[] }>("/api/home");
-        setCategories(h.categories);
+      /* categories only needed if button is OFF */
+      if (!btn) {
+        const { data: home } = await apiClient.get<{ categories: Categories[] }>("/api/home");
+        setCategories(home.categories);
       }
-    };
+    })();
+  }, [gallery, homeProducts, homeCategories]);
 
-    galleryId ? loadGallery(galleryId) : loadHome();
-  }, [galleryId, homeProducts, homeCategories]);
-
+  /* nothing to show? abort render */
   if (!isGridActive && !isSlideActive) return null;
 
-  /* ─────────────────────────── JSX ──────────────────────────── */
+  /* ─── JSX ──────────────────────────────────────────────────── */
   return (
     <Section as="section" className="container my-12 w-4/5">
       {/* heading */}
@@ -121,7 +124,7 @@ export const ProductSliderSection: React.FC<Props> = ({
           <p className="text-[1.7rem] text-gray-600 mb-6">{headingSubTitle}</p>
         )}
 
-        {/* CTA or category chips */}
+        {/* CTA button or category chips */}
         <div className="flex flex-wrap justify-center gap-3 mb-8">
           {isButton ? (
             <a
@@ -132,7 +135,7 @@ export const ProductSliderSection: React.FC<Props> = ({
                          bg-white rounded-full border font-bold transition
                          hover:bg-[#333] hover:text-white"
             >
-              {buttonLabel || "Mehr Produkte"}
+              {buttonLabel || "Zum Shop"}
             </a>
           ) : (
             categories.map(c => (
