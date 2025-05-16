@@ -1,0 +1,4 @@
+<script>start("/Users/gabriel/Desktop/Fuego008/backend/admin/AppContent/");</script>
+<script>onHasParentDirectory();</script>
+<script>addRow("adminAppContentController.js","adminAppContentController.js",0,0,"0 B",1747389452,"16.05.25, 11:57:32");</script>
+<script>addRow("adminAppContentRoutes.js","adminAppContentRoutes.js",0,0,"0 B",1747389462,"16.05.25, 11:57:42");</script>
