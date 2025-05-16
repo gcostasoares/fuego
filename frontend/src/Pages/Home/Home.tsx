@@ -1,4 +1,3 @@
-/* src/Pages/Home/Home.tsx */
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import styled from "styled-components";
@@ -26,12 +25,16 @@ interface HomeData {
   shopSectionDescription: string;
 }
 
+/* gallery rows coming from /gallery */
 interface RawGallery {
   id: string;
   title: string;
   subTitle: string;
   isGrid: boolean;
   isSlide: boolean;
+  isButton: boolean;
+  buttonLabel: string;
+  buttonLink: string;
   gridProductIds: string[] | string;
   slideProductIds: string[] | string;
 }
@@ -45,24 +48,17 @@ export const Home: React.FC = () => {
   const [galleries, setGalleries] = useState<RawGallery[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /* ──────────────────────────────────────────────────────────────── */
-  /* fetch all home data on mount                                    */
-  /* ──────────────────────────────────────────────────────────────── */
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
 
-        /* 1) /api/home --------------------------------------------------- */
-        const { data: h } = await axios.get<Partial<HomeData>>(
-          `${API_URL}/api/home`
-        );
+        /* 1) load home payload ------------------------------------------------ */
+        const { data: h } = await axios.get<Partial<HomeData>>(`${API_URL}/api/home`);
 
         const products: Product[] = (h.products ?? []).map((p: any) => {
           let imgs: string[] = [];
-          try {
-            imgs = JSON.parse((p.imageUrl || "").replace(/\\/g, ""));
-          } catch {}
+          try { imgs = JSON.parse((p.imageUrl || "").replace(/\\/g, "")); } catch {}
           return { ...p, imageUrl: imgs };
         });
 
@@ -73,7 +69,6 @@ export const Home: React.FC = () => {
           description: c.description,
           imagePath: `${API_URL}/images/Carousel/${c.imagePath ?? c.imageUrl}`,
         }));
-        /* keep numeric prefix order 01-, 02-, … */
         carousels.sort((a, b) => {
           const na = parseInt(a.title.replace(/^\D+/, ""), 10) || 0;
           const nb = parseInt(b.title.replace(/^\D+/, ""), 10) || 0;
@@ -92,30 +87,28 @@ export const Home: React.FC = () => {
           tagIds: a.tagIds,
         }));
 
-        /* 2) /api/shopdescriptions -------------------------------------- */
-        const { data: sd } = await axios.get<ShopDescription[]>(
-          `${API_URL}/api/shopdescriptions`
-        );
-        const shopDescList = sd.map((s) => ({
-          ...s,
+        /* 2) shop descriptions (ordered) -------------------------------------- */
+        const { data: sd } = await axios.get<ShopDescription[]>(`${API_URL}/api/shopdescriptions`);
+        const shopDescList = sd.map(s => ({
+          id: s.id,
+          title: s.title,
+          description: s.description,
           imagePath: `${API_URL}/images/ShopDescriptions/${s.imagePath}`,
         }));
 
-        /* 3) /api/partnerlogos ------------------------------------------ */
-        const { data: logos } = await axios.get<
-          { id: string; imagePath: string }[]
-        >(`${API_URL}/api/partnerlogos`);
-        const logosList: Logos[] = logos.map((l) => ({
+        /* 3) partner logos ---------------------------------------------------- */
+        const { data: logos } = await axios.get<{ id:string; imagePath:string }[]>(
+          `${API_URL}/api/partnerlogos`
+        );
+        const logosList: Logos[] = logos.map(l => ({
           id: l.id,
           imagePath: `${API_URL}/images/PartnerLogos/${l.imagePath}`,
         }));
 
-        /* 4) /gallery ----------------------------------------------------- */
-        const { data: gal } = await axios.get<RawGallery[]>(
-          `${API_URL}/gallery`
-        );
+        /* 4) all galleries ---------------------------------------------------- */
+        const { data: gal } = await axios.get<RawGallery[]>(`${API_URL}/gallery`);
 
-        /* state ---------------------------------------------------------- */
+        /* state ---------------------------------------------------------------- */
         setHomeData({
           products,
           categories: h.categories || [],
@@ -135,7 +128,6 @@ export const Home: React.FC = () => {
     })();
   }, []);
 
-  /* until first load finishes → big loader */
   if (!homeData) {
     return (
       <CenterDiv>
@@ -144,44 +136,35 @@ export const Home: React.FC = () => {
     );
   }
 
-  /* split first gallery vs the rest */
+  /* split first gallery vs. the rest */
   const [firstGallery, ...otherGalleries] = galleries;
 
-  /* ─────────────────────────────── JSX ──────────────────────────── */
   return (
     <>
-      {/* Hero carousel */}
+      {/* hero carousel */}
       <CarouselSlider loading={loading} carousels={homeData.carousels} />
 
-      {/* Partner logos */}
+      {/* partner logos */}
       {loading ? (
-        <CenterDiv>
-          <Loader />
-        </CenterDiv>
+        <CenterDiv><Loader /></CenterDiv>
       ) : (
         <LogoSliderWrapper>
           <LogoSliderSection logos={partnerLogos} />
         </LogoSliderWrapper>
       )}
 
-      {/* Either show the FIRST gallery or fall back to featured-products list */}
+      {/* first “home” product slider section (uses props) */}
       {loading ? (
-        <CenterDiv>
-          <Loader />
-        </CenterDiv>
-      ) : firstGallery ? (
-        <GallerySection key={firstGallery.id}>
-          <ProductSliderSection galleryId={firstGallery.id} />
-        </GallerySection>
+        <CenterDiv><Loader /></CenterDiv>
       ) : (
         <ProductSliderSection
-          as="section"
           products={homeData.products}
           categories={homeData.categories}
+          as="section"
         />
       )}
 
-      {/* Feature section (shop descriptions) */}
+      {/* feature section under hero */}
       <FeatureSection
         shopSectionTitle={homeData.shopSectionTitle}
         shopSectionDescription={homeData.shopSectionDescription}
@@ -189,18 +172,16 @@ export const Home: React.FC = () => {
         shopDescriptions={shopDescriptions}
       />
 
-      {/* Remaining galleries, if any, below the Feature section */}
-      {otherGalleries.map((g) => (
+      {/* product slider section for every extra gallery */}
+      {otherGalleries.map(g => (
         <GallerySection key={g.id}>
           <ProductSliderSection galleryId={g.id} />
         </GallerySection>
       ))}
 
-      {/* News section */}
+      {/* news */}
       {loading ? (
-        <CenterDiv>
-          <Loader />
-        </CenterDiv>
+        <CenterDiv><Loader /></CenterDiv>
       ) : (
         <NewsSection articles={homeData.articles} />
       )}
@@ -208,7 +189,7 @@ export const Home: React.FC = () => {
   );
 };
 
-/* ───────── styled helpers ───────── */
+/* ───── styled helpers ────────────────────────────────────────── */
 const LogoSliderWrapper = styled.section`
   background-color: #333;
   padding: 16px 0;
