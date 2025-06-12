@@ -15,7 +15,6 @@ import { Col,  Row  } from "react-bootstrap";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem, CommandList } from "cmdk";
 import { cn } from "@/lib/utils";
-import { API_URL } from "@/config";
 
 const DdlFilter = ({ onSortChange }: { onSortChange: (val: string) => void }) => {
   const [open, setOpen] = useState(false);
@@ -87,8 +86,7 @@ export const GrowEquipmentList = () => {
   const [loading, setLoading] = useState(true);
   const abortController = useRef<AbortController | null>(null);
 
-
-
+  const API_URL = "https://fuego-ombm.onrender.com";
 
   const fetchGrowEquipment = async () => {
     if (abortController.current) {
