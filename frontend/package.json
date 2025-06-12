@@ -3,6 +3,12 @@
   "version": "0.0.0",
   "lockfileVersion": 3,
   "requires": true,
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",      // ← add this
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
   "packages": {
     "": {
       "name": "fuego",
