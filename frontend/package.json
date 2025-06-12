@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "lockfileVersion": 3,
   "requires": true,
-  "engines": { "node": ">=20 <21" },
   "packages": {
     "": {
       "name": "fuego",
