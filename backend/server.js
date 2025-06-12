@@ -27,10 +27,8 @@ app.use(
 );
 app.use(
   cors({
-    origin: [
-      "https://fuego-dev.onrender.com",
-      "https://fuego-ombm.onrender.com",
-    ],
+    origin: true,           // <-- reflect request origin
+    credentials: true,      // if you need to send cookies/auth
     methods: ["GET","POST","PUT","DELETE","OPTIONS"],
     allowedHeaders: ["Content-Type","Authorization","x-admin-key"],
   })
