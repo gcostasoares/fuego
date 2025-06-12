@@ -3,12 +3,6 @@
   "version": "0.0.0",
   "lockfileVersion": 3,
   "requires": true,
-  "scripts": {
-    "dev": "vite",                        
-    "build": "vite build",             
-    "preview": "vite preview",           
-    "start": "vite preview --port 8080"   
-  },
   "packages": {
     "": {
       "name": "fuego",
