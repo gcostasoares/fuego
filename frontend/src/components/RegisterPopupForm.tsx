@@ -11,8 +11,8 @@ import {
 import { Input } from "./ui/input";
 import { useForm, FormProvider } from "react-hook-form";
 import { FormItem, FormControl, FormLabel } from "./ui/form";
+import { API_URL } from "@/config";
 
-const API_URL = "https://fuego-ombm.onrender.com";
 
 interface IProps {
   show: boolean;

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
+import { API_URL } from "@/config";
 
 interface Manufacturer {
   id: string;
@@ -20,7 +21,6 @@ export default function AdminManufacturersContent() {
   const [modalOpen, setModalOpen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const API_URL = "https://fuego-ombm.onrender.com";
   const headers = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
   const fetchManufacturers = async () => {

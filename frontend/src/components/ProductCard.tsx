@@ -5,10 +5,10 @@ import styled from "styled-components";
 import { Link }   from "@tanstack/react-router";
 import { Product } from "@/types/product";
 import { Box }    from "../Styles/StyledComponents";
+import { API_URL } from "@/config";
 
 /* ---------- helper ----------------------------------------- */
 
-const API_URL = "https://fuego-ombm.onrender.com";
 const PLACEHOLDER = `${API_URL}/images/Products/1.png`;        // make sure this exists
 
 /** Returns a full URL for a product image or the placeholder */

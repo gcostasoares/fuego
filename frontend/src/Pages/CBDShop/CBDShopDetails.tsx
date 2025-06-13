@@ -4,6 +4,7 @@ import { useParams } from "@tanstack/react-router";
 import apiClient from "@/Apis/apiService";
 import BusinessDetails from "@/components/BusinessDetails";
 import { CBDShop } from "@/types/doctors";
+import { API_URL } from "@/config";
 
 export const ShopDetails: React.FC = () => {
   const params = useParams({ from: "/detailShop/$shop" });
@@ -32,7 +33,6 @@ export const ShopDetails: React.FC = () => {
     return <div className="p-4">Loading shop details...</div>;
   }
 
-  const API_URL = "https://fuego-ombm.onrender.com";
 
   // normalize to "HH:mm"
   const startTime = shop.startTime?.slice(11, 16) ?? "";

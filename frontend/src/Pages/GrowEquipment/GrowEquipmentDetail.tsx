@@ -4,6 +4,7 @@ import { useParams } from "@tanstack/react-router";
 import apiClient from "@/Apis/apiService";
 import BusinessDetails from "@/components/BusinessDetails";
 import { GrowEquipment } from "@/types/doctors";
+import { API_URL } from "@/config";
 
 export const GrowEquipmentDetail: React.FC = () => {
   const params = useParams({ from: "/growEquipmentDetail/$id" });
@@ -34,7 +35,6 @@ export const GrowEquipmentDetail: React.FC = () => {
     return <div className="p-4">Loading grow equipment details...</div>;
   }
 
-  const API_URL = "https://fuego-ombm.onrender.com";
 
   // slice off date portion so we only pass "HH:mm"
   const startTime = growEquipment.startTime

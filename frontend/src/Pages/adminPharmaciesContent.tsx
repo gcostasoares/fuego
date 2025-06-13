@@ -11,7 +11,7 @@ import React, { useEffect, useState, useRef } from "react";
 import apiClient from "@/Apis/apiService";
 import { Button } from "@/components/ui/button";
 import Loader from "@/components/ui/loader";
-
+import { API_URL } from "@/config";
 /* ──────────────────────────────────────────────────────────────────── */
 /*  Loader overlay component                                           */
 /* ──────────────────────────────────────────────────────────────────── */
@@ -61,7 +61,6 @@ const defaultFormData = {
 
 const verifiedOptions = ["Not Verified", "Verified"];
 
-const API_URL = "https://fuego-ombm.onrender.com";
 
 const germanDays = [
   "Montag",

@@ -17,6 +17,7 @@ import {
   Draggable,
   DropResult,
 } from "react-beautiful-dnd";
+import { API_URL } from "@/config";
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /*  Loader overlay                                                           */
@@ -78,7 +79,6 @@ type GalleryItem = {
 /* ────────────────────────────────────────────────────────────────────────── */
 export default function AdminProductsContent() {
   /* -------------  state & constants ------------- */
-  const API_URL = "https://fuego-ombm.onrender.com";
   const headers = { "x-admin-key": localStorage.getItem("adminKey") || "" };
 
   const [loading,       setLoading]       = useState(false);

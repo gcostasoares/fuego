@@ -16,8 +16,7 @@ import { Col,  Row  } from "react-bootstrap";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem, CommandList } from "cmdk";
 import { cn } from "@/lib/utils";
-
-const API_URL = "https://fuego-ombm.onrender.com";
+import { API_URL } from "@/config";
 
 const DdlFilter = ({ onSortChange }: { onSortChange: (val: string) => void }) => {
   const [open, setOpen] = useState(false);

@@ -4,9 +4,7 @@ import { useParams } from "@tanstack/react-router";
 import apiClient from "@/Apis/apiService";
 import BusinessDetails from "@/components/BusinessDetails";
 import { Pharmacy } from "@/types/doctors";
-
-// point at your Express server
-const API_URL = "https://fuego-ombm.onrender.com";
+import { API_URL } from "@/config";
 
 export const PharmacyDetail: React.FC = () => {
   const { id: pharmacyId } = useParams({ from: "/pharmacyDetail/$id" });

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Button2 } from "./ui/button2";
 import { Divider } from "@/Pages/Products/Detail/ProductDetailMainContent";
 import apiClient from "@/Apis/apiService";
+import { API_URL } from "@/config";
 
 interface SaleEntry {
   id: string;
@@ -55,7 +56,6 @@ const BusinessDetails: React.FC<BusinessDetailsProps> = ({
   endTime,
   isDoctor = false,
 }) => {
-  const API_URL = "https://fuego-ombm.onrender.com";
   const [sale, setSale] = useState<SaleEntry | null>(null);
   const [saleImage, setSaleImage] = useState<string | null>(null);
 

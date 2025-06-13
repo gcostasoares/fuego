@@ -16,8 +16,7 @@ import { Col,  Row  } from "react-bootstrap";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem, CommandList } from "cmdk";
 import { cn } from "@/lib/utils";
-
-const API_URL = "https://fuego-ombm.onrender.com";
+import { API_URL } from "@/config";
 
 // unwrap JSON-encoded '["file.png"]' or return plain string
 function extractFilename(path: string | string[] | null): string | null {

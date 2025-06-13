@@ -15,6 +15,7 @@ import {
   Taste as ProductTaste,
 } from "@/types/product";
 import { Circle, IceCreamCone, Waves } from "lucide-react";
+import { API_URL } from "@/config";
 
 // German‐style price formatter
 const priceFormatter = new Intl.NumberFormat("de-DE", {
@@ -111,7 +112,6 @@ interface PharmacyWithPrice {
 export const ProductDetailMainContent: React.FC<ProductDetailMainContentProps> = ({
   product,
 }) => {
-  const API_URL = "https://fuego-ombm.onrender.com";
 
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [ray, setRay] = useState<Ray | null>(null);

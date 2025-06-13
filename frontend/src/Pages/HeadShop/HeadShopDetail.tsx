@@ -4,8 +4,7 @@ import { useParams } from "@tanstack/react-router";
 import apiClient from "@/Apis/apiService";
 import BusinessDetails from "@/components/BusinessDetails";
 import { HeadShop } from "@/types/doctors";
-
-const API_URL = "https://fuego-ombm.onrender.com";
+import { API_URL } from "@/config";
 
 // helper to unwrap JSON-encoded '["file.png"]' or return plain string
 function extractFilename(path: string | string[] | null): string | null {

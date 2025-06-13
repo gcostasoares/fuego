@@ -12,9 +12,7 @@ import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import { useForm, FormProvider } from "react-hook-form";
 import { FormItem, FormControl, FormLabel } from "./ui/form";
-
-// read from env or fallback
-const API_URL = process.env.REACT_APP_API_URL || "https://fuego-ombm.onrender.com";
+import { API_URL } from "@/config";
 
 interface IProps {
   show: boolean;

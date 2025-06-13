@@ -15,6 +15,7 @@ import { Categories } from "@/types/categories";
 import { Logos } from "@/types/logos";
 import { Product } from "@/types/product";
 import { ShopDescription } from "@/types/shopDescription";
+import { API_URL } from "@/config";
 
 interface HomeData {
   products: Product[];
@@ -38,7 +39,6 @@ interface GalleryRow {
   slideProductIds: string[] | string;
 }
 
-const API_URL = "https://fuego-ombm.onrender.com";
 
 export const Home: React.FC = () => {
   const [homeData, setHomeData]         = useState<HomeData | null>(null);

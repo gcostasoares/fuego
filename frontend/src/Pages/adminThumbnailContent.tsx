@@ -8,6 +8,7 @@ import {
   Draggable,
   DropResult
 } from "react-beautiful-dnd";
+import { API_URL } from "@/config";
 
 interface Slide {
   id: string;
@@ -33,7 +34,6 @@ const AdminThumbnailContent: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const API_URL = "https://fuego-ombm.onrender.com";
   const token = localStorage.getItem("token")!;
   const headers = { Authorization: `Bearer ${token}` };
 

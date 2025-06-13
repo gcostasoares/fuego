@@ -10,8 +10,8 @@ import {
   CarouselContent,
   CarouselItem,
 } from "./ui/carousel";
+import { API_URL } from "@/config";
 
-const API_URL = "https://fuego-ombm.onrender.com";
 const PLACEHOLDER = `${API_URL}/images/Products/1.png`;
 
 const toProductImgUrl = (file?: string) =>

@@ -9,6 +9,7 @@ import {
   Draggable,
   DropResult,
 } from "react-beautiful-dnd";
+import { API_URL } from "@/config";
 
 interface ShopDesc {
   id: string;
@@ -30,7 +31,6 @@ export default function AdminShopDescriptionsContent() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const API_URL = "https://fuego-ombm.onrender.com";
   const token   = localStorage.getItem("token") || "";
   const authHdr = { Authorization: `Bearer ${token}` };
 
